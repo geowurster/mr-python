@@ -16,6 +16,7 @@ develop-eggs/
 dist/
 downloads/
 eggs/
+.eggs/
 lib/
 lib64/
 parts/
@@ -42,6 +43,11 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
 
 # Translations
 *.mo
