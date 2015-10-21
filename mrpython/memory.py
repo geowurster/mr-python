@@ -38,7 +38,6 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from itertools import chain
 from multiprocessing import Pool
-from types import GeneratorType
 
 import six
 
@@ -134,17 +133,42 @@ class MRMemory(object):
         4. Reduce
     """
 
-    def __call__(self, stream):
+    def __call__(self, stream, jobs=1):
 
         """
         Construct and execute the MapReduce pipeline.
+
+        Parameters
+        ----------
+        stream : iter
+            Input for map phase.
+        jobs : int, optional
+            Semi-experimental.  Execute sorting and reducing in parallel.
+            Seems to only be faster for very large datasets but requires all
+            keys and values to be pickle-able and uses significantly more RAM.
+            You probably want `jobs=1`, which is the default.
+
+        Yields
+        ------
+        tuple
+            key, value pairs from the reduce phase.
         """
+
+        if jobs < 1:
+            raise ValueError("jobs must be >= 1, not {}".format(jobs))
 
         mapped = chain(*(self.mapper(item) for item in stream))
         with self._object_manager(self.partitioner(mapped)) as partitioned:
-            sorted = ((k, self.sorter(k, v)) for k, v in six.iteritems(partitioned))
-            for key, values in sorted:
-                yield key, self.reducer(key, values)
+
+            if jobs == 1:
+                sorted = ((k, self.sorter(k, v)) for k, v in six.iteritems(partitioned))
+                for key, values in sorted:
+                    yield key, self.reducer(key, values)
+
+            else:
+                sorted_gen = Pool(jobs).imap_unordered(self._p_sorter, six.iteritems(partitioned))
+                for key, red in Pool(jobs).imap_unordered(self._p_reducer, sorted_gen):
+                    yield key, red
 
     @contextmanager
     def _object_manager(self, obj):
@@ -158,6 +182,26 @@ class MRMemory(object):
             yield obj
         finally:
             obj = None
+
+    def _p_sorter(self, key_values):
+
+        """
+        Helper method for sorting multiple keys in parallel.
+        """
+
+        key, values = key_values
+        values = tuple(values)
+        return key, tuple(self.sorter(key, values))
+
+    def _p_reducer(self, key_values):
+
+        """
+        Helper method for reducing multiple keys in parallel.
+        """
+
+        key, values = key_values
+        values = tuple(values)
+        return key, self.reducer(key, values)
 
     def mapper(self, item):
 
