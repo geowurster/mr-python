@@ -16,25 +16,32 @@ To set up a job:
 
 Consider the canonical MapReduce example: word count (oh brother ...):
 
-    >>> import os
-    >>>
-    >>> from mrpython import mr_memory
-    >>>
-    >>> def mapper(line):
-    ...     for word in line.split():
-    ...         yield word, 1
-    >>>
-    >>> def reducer(word, frequency):
-    ...     return sum(frequency)
-    >>>
-    >>> with open('infile.txt') as src, open('outfile.txt') as dst:
-    ...     for word, count in mr_memory(src, mapper, reducer).items():
-    ...         dst.write("{word}: {count}".format(word=word, count=count) + os.linesep)
+    >>> import re
+    >>> from mrpython import MRMemory
+    >>> class WordCount(MRMemory):
+    ...
+    ...     def __init__(self):
+    ...         self.p = re.compile('[^a-zA-Z]+')
+    ...
+    ...     def scrub_word(self, word):
+    ...         return self.p.sub('', word)
+    ...
+    ...     def mapper(self, item):
+    ...         for word in item.split():
+    ...             word = self.scrub_word(word).strip().lower()
+    ...             yield word, 1
+    ...
+    ...     def reducer(self, key, values):
+    ...         return sum(values)
+    ...
+    >>> mr = WordCount()
+    >>> with open('LICENSE.txt') as f:
+    ...     for word, count in mr(f):
+    ...         print("{word}: {count}".format(word=word,  count=count))
 """
 
 
 from collections import defaultdict
-from collections import OrderedDict
 from contextlib import contextmanager
 from itertools import chain
 from multiprocessing import Pool
@@ -42,88 +49,11 @@ from multiprocessing import Pool
 import six
 
 
-def mapit(stream, mapper, keysort_kwargs=None, valsort_kwargs=None):
-
-    """
-    Run an in-memory map operation.
-
-    Parameters
-    ----------
-    stream : iter
-        A stream of input objects.
-    mapper : callable
-        A function that accepts a single item from the `stream` and yields
-        `key, value` tuples.  Can yield 0, 1, or many tuples.  Key can be
-        any hashable object.
-    keysort_kwargs : dict or None, optional
-        Keyword arguments to add to `sorted()` when sorting keys in the output
-        dictionary.
-    valsort_kwargs : dict or None, optional
-        Keyword arguments to add to `sorted()` when sorting values in the
-        output dictionary.
-
-    Returns
-    -------
-    dict
-        Keys and values from the mapper.  Both are sorted.
-    """
-
-    keysort_kwargs = keysort_kwargs or {}
-    valsort_kwargs = valsort_kwargs or {}
-
-    partitioned = defaultdict(list)
-    try:
-        for item in stream:
-            for key, data in list(mapper(item)):
-                partitioned[key].append(data)
-
-        return OrderedDict(
-            (k, sorted(partitioned[k], **keysort_kwargs))
-            for k in sorted(partitioned.keys(), **valsort_kwargs))
-
-    finally:
-        # Make sure we destroy what could be a large in-memory object
-        partitioned = None
-
-
-def reduceit(partitioned, reducer):
-
-    """
-    Run an in-memory reduce operation on the output of `mapit()`.
-
-    Parameters
-    ----------
-    partitioned : dict
-        The output from `mapit()`.  Keys and sorted values from the map phase.
-    reducer : callable
-        A function that accepts two positional arguments: key and sorted values.
-        Must return a single value.
-
-    Returns
-    -------
-    dict
-        Input keys with values from the reduce phase.
-    """
-
-    return {k: reducer(k, v) for k, v in six.iteritems(partitioned)}
-
-
-def mr_memory(stream, mapper, reducer):
-
-    """
-    Execute an in-memory map and reduce and receive a dictionary with sorted
-    keys and values.
-    """
-
-    return reduceit(mapit(stream, mapper), reducer)
-
-
-
 class MRMemory(object):
 
     """
     In-memory MapReduce for tiny datasets.  No `combiner` since all the data
-    is already in memory.
+    is already in memory and only one mapper is executed.
 
     Order of operations:
 
@@ -166,7 +96,8 @@ class MRMemory(object):
                     yield key, self.reducer(key, values)
 
             else:
-                sorted_gen = Pool(jobs).imap_unordered(self._p_sorter, six.iteritems(partitioned))
+                sorted_gen = Pool(jobs).imap_unordered(
+                    self._p_sorter, six.iteritems(partitioned))
                 for key, red in Pool(jobs).imap_unordered(self._p_reducer, sorted_gen):
                     yield key, red
 
@@ -186,7 +117,18 @@ class MRMemory(object):
     def _p_sorter(self, key_values):
 
         """
-        Helper method for sorting multiple keys in parallel.
+        Helper method for sorting multiple keys in parallel.  Have to expand
+        generators into tuples so they can be pickled.
+
+        Parameters
+        ----------
+        key_values : tuple
+            key, value from mapper.
+
+        Returns
+        -------
+        tuple
+            key, self.sorter(key, values)
         """
 
         key, values = key_values
@@ -196,7 +138,18 @@ class MRMemory(object):
     def _p_reducer(self, key_values):
 
         """
-        Helper method for reducing multiple keys in parallel.
+        Helper method for reducing multiple keys in parallel.  Have to expand
+        generators into tuples so they can be pickled.
+
+        Parameters
+        ----------
+        key_values : tuple
+            key, value from sorter.
+
+        Returns
+        -------
+        tuple
+            key, self.reducer(key, values)
         """
 
         key, values = key_values

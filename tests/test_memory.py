@@ -5,7 +5,6 @@ Unittests for mrpython.memory
 
 import pytest
 
-from mrpython import mr_memory
 from mrpython import MRMemory
 
 
@@ -21,20 +20,6 @@ TINY_TEXT_MR_OUTPUT = {
     'cool': 1,
     '1': 1
 }
-
-
-
-def test_mr_memory(tiny_text, tiny_text_mr_output):
-
-    def mapper(line):
-        for word in line.split():
-            yield word, 1
-
-    def reducer(word, frequency):
-        return sum(frequency)
-
-    actual = mr_memory(tiny_text, mapper, reducer)
-    assert actual == tiny_text_mr_output
 
 
 @pytest.mark.parametrize("jobs,expected", [
@@ -53,18 +38,3 @@ def test_MRMemory(jobs, tiny_text, expected):
 
     actual = dict(WordCount()(tiny_text, jobs=jobs))
     assert actual == expected
-
-
-# def test_MRMemory_parallel(tiny_text, tiny_text_mr_output):
-#
-#     class WordCount(MRMemory):
-#
-#         def mapper(self, item):
-#             for word in item.split():
-#                 yield word, 1
-#
-#         def reducer(self, key, values):
-#             return sum(values)
-#
-#     actual = WordCount()(tiny_text, jobs=2)
-#     assert dict(actual) == tiny_text_mr_output

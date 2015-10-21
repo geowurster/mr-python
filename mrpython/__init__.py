@@ -1,10 +1,9 @@
 """
-Pythonic MapReduce: because the functionality is useful outside a cluster in
+Pythonic MapReduce: because the paradigm is useful outside a cluster in
 weird places.
 """
 
 
-from mrpython.memory import mr_memory
 from mrpython.memory import MRMemory
 
 
