@@ -11,6 +11,37 @@ Experimental Pythonic MapReduce.
     :target: https://coveralls.io/r/geowurster/mr-python?branch=master
 
 
+Canonical Word Count Example
+============================
+
+.. code-block:: python
+
+    import re
+    from mrpython import MRMemory
+
+
+    class WordCount(MRMemory):
+
+        def __init__(self):
+            self.p = re.compile('[^a-zA-Z]+')
+
+        def scrub_word(self, word):
+            return self.p.sub('', word)
+
+        def mapper(self, item):
+            for word in item.split():
+                word = self.scrub_word(word).strip().lower()
+                yield word, 1
+
+        def reducer(self, key, values):
+            return sum(values)
+
+    mr = WordCount()
+    with open('LICENSE.txt') as f:
+        for word, count in mr(f):
+            print("{word}: {count}".format(word=word,  count=count))
+
+
 Developing
 ==========
 

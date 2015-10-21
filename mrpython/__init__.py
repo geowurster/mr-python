@@ -5,6 +5,7 @@ weird places.
 
 
 from mrpython.memory import mr_memory
+from mrpython.memory import MRMemory
 
 
 __version__ = '0.1'

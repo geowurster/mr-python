@@ -35,6 +35,10 @@ Consider the canonical MapReduce example: word count (oh brother ...):
 
 from collections import defaultdict
 from collections import OrderedDict
+from contextlib import contextmanager
+from itertools import chain
+from multiprocessing import Pool
+from types import GeneratorType
 
 import six
 
@@ -113,3 +117,128 @@ def mr_memory(stream, mapper, reducer):
     """
 
     return reduceit(mapit(stream, mapper), reducer)
+
+
+
+class MRMemory(object):
+
+    """
+    In-memory MapReduce for tiny datasets.  No `combiner` since all the data
+    is already in memory.
+
+    Order of operations:
+
+        1. Map
+        2. Partition
+        3. Sort
+        4. Reduce
+    """
+
+    def __call__(self, stream):
+
+        """
+        Construct and execute the MapReduce pipeline.
+        """
+
+        mapped = chain(*(self.mapper(item) for item in stream))
+        with self._object_manager(self.partitioner(mapped)) as partitioned:
+            sorted = ((k, self.sorter(k, v)) for k, v in six.iteritems(partitioned))
+            for key, values in sorted:
+                yield key, self.reducer(key, values)
+
+    @contextmanager
+    def _object_manager(self, obj):
+
+        """
+        Manage in-memory objects to make sure they are destroyed as quickly as
+        possible.
+        """
+
+        try:
+            yield obj
+        finally:
+            obj = None
+
+    def mapper(self, item):
+
+        """
+        Receives an item from the input stream.  Yields `key, value` tuples.
+
+        Parameters
+        ----------
+        item : object
+            Something from the input stream.
+
+        Yields
+        ------
+        tuple
+            0, 1, or many `key, value` tuples.
+        """
+
+        raise NotImplementedError
+
+    def partitioner(self, key_value_pairs):
+
+        """
+        Assemble data into groups, usually by key from the mapper.
+
+        Parameters
+        ----------
+        key : object
+            From the mapper.
+        values : iter
+            Unsorted values from the map phase.
+
+        Returns
+        ------
+        dict
+            Data organized by key from the mapper.  Values are lists of values
+            from the mapper.
+
+                {key from mapper: [list of values]}
+        """
+
+        partitioned = defaultdict(list)
+        for key, value in key_value_pairs:
+            partitioned[key].append(value)
+        return partitioned
+
+    def sorter(self, key, values):
+
+        """
+        Sort values before reducing.
+
+        Parameters
+        ----------
+        key : object
+            Key from the mapper.
+        values : iter
+            Unsorted values from the map phase.
+
+        Yields
+        ------
+        objects
+            Sorted items from one key from the reducer.
+        """
+
+        return (i for i in sorted(values))
+
+    def reducer(self, key, values):
+
+        """
+        Receives a key identifying the data being processed and some data.
+
+        Parameters
+        ----------
+        key : object
+            Identifies the data being processed.
+        values : iter
+            Sorted data to process.
+
+        Yields
+        ------
+        object
+            Processed data.
+        """
+
+        raise NotImplementedError
