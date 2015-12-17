@@ -1,10 +1,8 @@
 """
-Pythonic MapReduce: because the paradigm is useful outside a cluster in
-weird places.
+Pythonic MapReduce
+
+Heavily inspired by Spotify's Luigi framework - github.com/Spotify/Luigi
 """
-
-
-from mrpython.memory import MRMemory
 
 
 __version__ = '0.1'
