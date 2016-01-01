@@ -7,6 +7,8 @@ from collections import defaultdict
 from contextlib import contextmanager
 from itertools import chain
 
+import six
+
 
 class MRBase(object):
 
@@ -14,6 +16,58 @@ class MRBase(object):
     Base class for various MapReduce implementations.  Not all methods are
     used by every implementation.
     """
+
+    @property
+    def sort_map(self):
+
+        """
+        Sort the output from the map phase before the combine phase.
+
+        Returns
+        -------
+        bool
+        """
+
+        return True
+
+    @property
+    def sort_combine(self):
+
+        """
+        Sort the output from the combine phase before the partition phase.
+
+        Returns
+        -------
+        bool
+        """
+
+        return True
+
+    @property
+    def sort_final_reduce(self):
+
+        """
+        Pass data to the `final_reducer()` sorted by key.
+
+        Returns
+        -------
+        bool
+        """
+
+        return True
+
+    @property
+    def sort_reduce(self):
+
+        """
+        Sort the output from the `reducer()` phase before the `final_reducer().
+
+        Returns
+        -------
+        bool
+        """
+
+        return True
 
     def mapper(self, item):
 
@@ -53,28 +107,6 @@ class MRBase(object):
         """
 
         raise NotImplementedError
-
-    def sorter(self, key, pairs):
-        
-        """
-        Produces sorted data without any keys.
-
-        Parameters
-        ----------
-        key : object
-            Identifier for this group of data.
-        pairs : iter
-            Produces two element tuples, the first of which is used for sorting
-            and the second is yielded as data.
-
-        Yields
-        ------
-        iter
-            Sorted data without keys.
-        """
-
-        for v in sorted(pairs, key=lambda x: x[0]):
-            yield v[-1]
 
     def reducer(self, key, values):
 
@@ -145,51 +177,35 @@ class MRBase(object):
 
         try:
 
-            for pkey, skey, data  in psd_stream:
-                partitioned[pkey].append((skey, data))
+            for kv_data in psd_stream:
+                partitioned[kv_data[0]].append(kv_data)
 
             yield partitioned
 
         finally:
             partitioned = None
 
-    @contextmanager
-    def _partition_no_sort(self, pd_stream):
+    def _sorter(self, key_values, fake=False):
 
         """
-        Same as `_partition()` except the input stream is `(partition, data)`
-        tuples.  This exists as its own method to take advantage of the small
-        optimization of knowing there are always 2 keys instead of 3.
-        """
-
-        partitioned = defaultdict(list)
-        try:
-
-            for pkey, data in pd_stream:
-                partitioned[pkey].append(data)
-
-            yield partitioned
-
-        finally:
-            partitioned = None
-
-    def _sort(self, kv_stream):
-
-        """
-        Sorts partitioned data.
+        Produces sorted data without any keys.
 
         Parameters
         ----------
-        partitioned : iter
-            Stream of `(sort, values)` where `sort` is the key to sort on.
+        data : iter
+            Produces tuples from the map phase.
+        fake : bool, optional
+            Don't do the sort - just strip off the data key.
 
         Yields
         ------
-        tuple
-            `(key, data)`
+        iter
+            Sorted data without keys.
         """
 
-        return ((key, self.sorter(key, data)) for key, data in kv_stream)
+        for key, values in key_values:
+            values = iter(values) if fake else sorted(values, key=lambda x: x[-2])
+            yield key, (v[-1] for v in values)
 
     def _map(self, stream):
 
@@ -206,3 +222,28 @@ class MRBase(object):
         """
 
         return chain(*(self.reducer(key, values) for key, values in kv_stream))
+
+    def _combine(self, kv_stream):
+
+        """
+        Apply the `combiner()` across a stream of `(key, values)` pairs.
+        """
+
+        return chain(*(self.combiner(key, values) for key, values in kv_stream))
+
+    def _final_reducer_sorter(self, kv_stream):
+
+        """
+        Sort data by key before it enters the `final_reducer()`.
+
+        Parameters
+        ----------
+        kv_stream : iter
+            Producing `(key, iter(values))`.
+
+        Yields
+        ------
+        tuple
+        """
+
+        return ((k, v) for k, v in sorted(kv_stream, key=lambda x: x[0]))
