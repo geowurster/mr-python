@@ -2,11 +2,10 @@
 
 
 """
-Setup script for mr-python
+Setup script for tinymr
 """
 
 
-from itertools import chain
 import os
 
 from setuptools import find_packages
@@ -17,26 +16,36 @@ with open('README.rst') as f:
     readme = f.read().strip()
 
 
-version = None
-author = None
-email = None
-source = None
-with open(os.path.join('mrpython', '__init__.py')) as f:
-    for line in f:
-        if line.strip().startswith('__version__'):
-            version = line.split('=')[1].strip().replace('"', '').replace("'", '')
-        elif line.strip().startswith('__author__'):
-            author = line.split('=')[1].strip().replace('"', '').replace("'", '')
-        elif line.strip().startswith('__email__'):
-            email = line.split('=')[1].strip().replace('"', '').replace("'", '')
-        elif line.strip().startswith('__source__'):
-            source = line.split('=')[1].strip().replace('"', '').replace("'", '')
-        elif None not in (version, author, email, source):
-            break
+def parse_dunder_line(string):
+
+    """
+    Take a line like:
+
+        "__version__ = '0.0.8'"
+
+    and turn it into a tuple:
+
+        ('__version__', '0.0.8')
+
+    Not very fault tolerant.
+    """
+
+    # Split the line and remove outside quotes
+    variable, value = (s.strip() for s in string.split('=')[:2])
+    value = value[1:-1].strip()
+    return variable, value
+
+
+with open(os.path.join('tinymr', '__init__.py')) as f:
+    dunders = dict((parse_dunder_line(line) for line in f if line.strip().startswith('__')))
+    version = dunders['__version__']
+    author = dunders['__author__']
+    email = dunders['__email__']
+    source = dunders['__source__']
 
 
 setup(
-    name='mr-python',
+    name='tinymr',
     author=author,
     author_email=email,
     classifiers=[
@@ -52,8 +61,9 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: Implementation :: PyPy'
+        'Programming Language :: Python :: Implementation :: PyPy3'
     ],
-    description="Experimental Pythonic MapReduce.",
+    description="Pythonic in-memory MapReduce.",
     include_package_data=True,
     install_requires=[
         'six'
@@ -65,7 +75,7 @@ setup(
             'coveralls',
         ],
     },
-    keywords='experimental map reduce mapreduce hadoop',
+    keywords='experimental map reduce mapreduce',
     license="New BSD",
     long_description=readme,
     packages=find_packages(exclude=['tests']),

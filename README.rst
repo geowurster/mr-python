@@ -4,11 +4,11 @@ MapReduce Python
 
 Experimental Pythonic MapReduce inspired by `Spotify's luigi framework <http://www.github.com/Spotify/luigi>`_.
 
-.. image:: https://travis-ci.org/geowurster/mr-python.svg?branch=master
-    :target: https://travis-ci.org/geowurster/mr-python?branch=master
+.. image:: https://travis-ci.org/geowurster/tinymr.svg?branch=master
+    :target: https://travis-ci.org/geowurster/tinymr?branch=master
 
-.. image:: https://coveralls.io/repos/geowurster/mr-python/badge.svg?branch=master
-    :target: https://coveralls.io/r/geowurster/mr-python?branch=master
+.. image:: https://coveralls.io/repos/geowurster/tinymr/badge.svg?branch=master
+    :target: https://coveralls.io/r/geowurster/tinymr?branch=master
 
 
 Canonical Word Count Example
@@ -17,7 +17,7 @@ Canonical Word Count Example
 Currently there are two MapReduce implementations, one that includes sorting and
 one that does not.  The example below would not benefit from sorting so we can
 take advantage of the inherent optimization of not sorting.  The API is the same
-but ``mrpython.memory.MRSerial()`` sorts after partitioning and again between the
+but ``tinymr.memory.MRSerial()`` sorts after partitioning and again between the
 ``reducer()`` and ``final_reducer()``.
 
 .. code-block:: python
@@ -26,10 +26,10 @@ but ``mrpython.memory.MRSerial()`` sorts after partitioning and again between th
     import re
     import sys
 
-    from mrpython.memory import MRSerialNoSort
+    from tinymr.memory import MRSerial
 
 
-    class WordCount(MRSerialNoSort):
+    class WordCount(MRSerial):
 
         def __init__(self):
             self.pattern = re.compile('[\W_]+')
@@ -44,7 +44,7 @@ but ``mrpython.memory.MRSerial()`` sorts after partitioning and again between th
             yield key, sum(values)
 
         def final_reducer(self, pairs):
-            return {k: v[0] for k, v in pairs}
+            return {k: tuple(v)[0] for k, v in pairs}
 
 
     wc = WordCount()
@@ -71,10 +71,10 @@ Developing
 
 .. code-block:: console
 
-    $ git clone https://github.com/geowurster/mr-python.git
-    $ cd mr-python
+    $ git clone https://github.com/geowurster/tinymr.git
+    $ cd tinymr
     $ pip install -e .\[dev\]
-    $ py.test tests --cov mrpython --cov-report term-missing
+    $ py.test tests --cov tinymr --cov-report term-missing
 
 
 License

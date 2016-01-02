@@ -1,10 +1,10 @@
 """
-Unittests for mrpython.memory
+Unittests for tinymr.memory
 """
 
 
-import mrpython as mr
-import mrpython.memory
+import tinymr as mr
+import tinymr.memory
 
 
 def test_MRSerial_no_sort(tiny_text, tiny_text_wc_output):

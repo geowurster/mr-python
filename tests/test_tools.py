@@ -1,5 +1,5 @@
 """
-Unittests for mrpython.tools
+Unittests for tinymr.tools
 """
 
 
@@ -10,7 +10,7 @@ from types import GeneratorType
 import pytest
 import six
 
-from mrpython import tools
+from tinymr import tools
 
 
 def test_slicer_even():
