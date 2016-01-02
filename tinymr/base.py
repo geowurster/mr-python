@@ -17,6 +17,15 @@ class MRBase(object):
     used by every implementation.
     """
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
+
     @property
     def sort_map(self):
 
@@ -69,6 +78,13 @@ class MRBase(object):
 
         return True
 
+    def close(self):
+
+        """
+        Allows the user an opportunity to destroy any connections or data
+        structures created in an `init` step.
+        """
+
     def mapper(self, item):
 
         """
@@ -107,6 +123,14 @@ class MRBase(object):
         """
 
         raise NotImplementedError
+
+    def init_reduce(self):
+
+        """
+        Called immediately prior to the reduce phase and gives the user an
+        opportunity to make adjustments now that the entire dataset has been
+        observed in the map phase.
+        """
 
     def reducer(self, key, values):
 

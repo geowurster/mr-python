@@ -33,3 +33,18 @@ def test_default_methods():
     mr = base.MRBase()
     expected = [(i, tuple(range(i))) for i in range(1, 10)]
     assert list(mr.final_reducer(expected)) == expected
+
+
+def test_context_manager():
+
+    class MR(base.MRBase):
+
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    with MR() as mr:
+        assert not mr.closed
+    assert mr.closed
