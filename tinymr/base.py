@@ -7,7 +7,8 @@ from collections import defaultdict
 from contextlib import contextmanager
 from itertools import chain
 
-import six
+from tinymr import errors
+from tinymr import tools
 
 
 class MRBase(object):
@@ -158,7 +159,10 @@ class MRBase(object):
         See `reducer()` for more information.
         """
 
-        raise NotImplementedError
+        # Not required so we raise a special exception that we can catch later
+        # Raising NotImplementedError also causes linters and code inspectors
+        # to prompt the user to implement this method when it is not required.
+        raise errors._CombinerNotImplemented
 
     def init_reduce(self):
 
@@ -264,7 +268,7 @@ class MRBase(object):
         """
 
         for key, values in key_values:
-            values = iter(values) if fake else sorted(values, key=lambda x: x[-2])
+            values = iter(values) if fake else tools.sorter(values, key=lambda x: x[-2])
             yield key, (v[-1] for v in values)
 
     def _map(self, stream):
@@ -306,4 +310,4 @@ class MRBase(object):
         tuple
         """
 
-        return ((k, v) for k, v in sorted(kv_stream, key=lambda x: x[0]))
+        return ((k, v) for k, v in tools.sorter(kv_stream, key=lambda x: x[0]))

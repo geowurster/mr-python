@@ -70,11 +70,11 @@ class MRSerial(mr.base.MRBase):
 
         with self._partition(self._map(stream)) as partitioned:
 
-            sorted_data = self._sorter(six.iteritems(partitioned), fake=self.sort_map)
+            sorted_data = self._sorter(six.iteritems(partitioned), fake=not self.sort_map)
 
         with self._partition(self._reduce(sorted_data)) as partitioned:
 
-            sorted_data = self._sorter(six.iteritems(partitioned), fake=self.sort_reduce)
+            sorted_data = self._sorter(six.iteritems(partitioned), fake=not self.sort_reduce)
 
             if self.sort_final_reduce:
                 sorted_data = self._final_reducer_sorter(sorted_data)

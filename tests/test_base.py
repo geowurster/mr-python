@@ -6,6 +6,7 @@ Unittests for tinymr.base
 import pytest
 
 from tinymr import base
+from tinymr import errors
 
 
 def test_not_implemented_methods():
@@ -13,7 +14,7 @@ def test_not_implemented_methods():
     mr = base.MRBase()
     with pytest.raises(NotImplementedError):
         mr.mapper(None)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(errors.CombinerNotImplemented):
         mr.combiner(None, None)
     with pytest.raises(NotImplementedError):
         mr.reducer(None, None)

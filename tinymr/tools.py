@@ -9,6 +9,8 @@ import multiprocessing as mp
 
 from six.moves import zip
 
+from tinymr import errors
+
 
 def slicer(iterable, chunksize):
 
@@ -122,3 +124,47 @@ def mapkey(key, values):
     """
 
     return zip(it.cycle([key]), values)
+
+
+def sorter(*args, **kwargs):
+
+    """
+    Wrapper for the builtin `sorted()` that produces a better error when
+    unorderable types are encountered.
+
+    Instead of:
+
+        >>> sorted(['1', 1])
+        Traceback (most recent call last):
+          File "buh.py", line 76, in <module>
+            sorted(['1', 1])
+        TypeError: unorderable types: int() < str()
+
+    We get:
+
+        >>> sorter(['1', 1])
+
+    Parameters
+    ----------
+    *args : *args
+        Positional arguments for `sorted()`.
+    **kwargs : **kwargs
+        Keyword arguments for `sorted()`.
+
+    Raises
+    ------
+    tinymr.errors.UnorderableKeys
+
+    Returns
+    -------
+    list
+        Output from `sorted()`.
+    """
+
+    try:
+        return sorted(*args, **kwargs)
+    except TypeError as e:
+        if 'unorderable' in str(e):
+            raise errors._UnorderableKeys
+        else:
+            raise e

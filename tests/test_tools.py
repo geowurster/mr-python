@@ -10,6 +10,7 @@ from types import GeneratorType
 import pytest
 import six
 
+from tinymr import errors
 from tinymr import tools
 
 
@@ -146,3 +147,21 @@ def test_mapkey():
 
     assert not isinstance(actual, (list, tuple))  # Make sure we get an iterator
     assert list(actual) == expected
+
+
+def test_sorter():
+
+    items = [1, 6, 3, 5, 9, 10]
+    assert sorted(items) == tools.sorter(items)
+
+
+def test_sorter_exceptions():
+
+    with pytest.raises(errors.UnorderableKeys):
+        tools.sorter(['1', 1])
+
+    def _k(v):
+        raise TypeError('bad')
+
+    with pytest.raises(TypeError):
+        tools.sorter([2, 1], key=_k)
