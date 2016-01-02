@@ -25,6 +25,14 @@ class CombinerNotImplemented(MRException):
     """
 
 
+class ClosedTask(MRException):
+
+    """
+    Cannot re-use closed MapReduce tasks.
+    """
+
+
 # Instantiated exceptions to make sure we get a clear message
 _UnorderableKeys = UnorderableKeys(UnorderableKeys.__doc__.strip())
 _CombinerNotImplemented = CombinerNotImplemented(CombinerNotImplemented.__doc__.strip())
+_ClosedTask = ClosedTask(ClosedTask.__doc__.strip())

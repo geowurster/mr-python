@@ -78,3 +78,12 @@ def test_cant_reuse_tasks():
     with pytest.raises(IOError):
         with mr as c:
             pass
+
+
+def test_runtime_validate():
+
+    class MR(base.MRBase):
+        closed = True
+
+    with pytest.raises(errors.ClosedTask):
+        MR()._runtime_validate()

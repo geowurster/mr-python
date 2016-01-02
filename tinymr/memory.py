@@ -10,7 +10,7 @@ import six
 
 import tinymr as mr
 import tinymr.base
-import tinymr.tools
+import tinymr.errors
 
 
 # class MRParallelNoSort(mr.base.MRBase):
@@ -68,6 +68,8 @@ class MRSerial(mr.base.MRBase):
 
     def __call__(self, stream):
 
+        self._runtime_validate()
+
         with self._partition(self._map(stream)) as partitioned:
 
             sorted_data = self._sorter(six.iteritems(partitioned), fake=not self.sort_map)
@@ -81,3 +83,12 @@ class MRSerial(mr.base.MRBase):
 
             self.init_reduce()
             return self.final_reducer(sorted_data)
+
+
+# class MRParallel(mr.base.MRBase):
+#
+#     """
+#     Parallelized map and reduce with an optional combine phase.
+#     """
+#
+#     def __call__(self, *args, **kwargs):

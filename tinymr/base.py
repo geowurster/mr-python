@@ -311,3 +311,14 @@ class MRBase(object):
         """
 
         return ((k, v) for k, v in tools.sorter(kv_stream, key=lambda x: x[0]))
+
+    def _runtime_validate(self):
+
+        """
+        Validate a MapReduce task when it is executed.  We give the user the
+        `__init__()` so we can't do any validation there.  Call at the beginning
+         of `__call__()`.
+        """
+
+        if self.closed:
+            raise errors._ClosedTask
