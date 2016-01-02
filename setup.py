@@ -60,8 +60,7 @@ setup(
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: Implementation :: PyPy'
-        'Programming Language :: Python :: Implementation :: PyPy3'
+        'Programming Language :: Python :: Implementation :: PyPy',
     ],
     description="Pythonic in-memory MapReduce.",
     include_package_data=True,

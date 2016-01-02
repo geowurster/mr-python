@@ -2,13 +2,13 @@
 MapReduce Python
 ================
 
-Experimental Pythonic MapReduce inspired by `Spotify's luigi framework <http://www.github.com/Spotify/luigi>`_.
-
 .. image:: https://travis-ci.org/geowurster/tinymr.svg?branch=master
     :target: https://travis-ci.org/geowurster/tinymr?branch=master
 
 .. image:: https://coveralls.io/repos/geowurster/tinymr/badge.svg?branch=master
     :target: https://coveralls.io/r/geowurster/tinymr?branch=master
+
+Experimental Pythonic MapReduce inspired by `Spotify's luigi framework <http://www.github.com/Spotify/luigi>`_.
 
 
 Canonical Word Count Example
