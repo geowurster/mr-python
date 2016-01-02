@@ -136,13 +136,13 @@ def sorter(*args, **kwargs):
 
         >>> sorted(['1', 1])
         Traceback (most recent call last):
-          File "buh.py", line 76, in <module>
-            sorted(['1', 1])
+          File "<stdin>", line 1, in <module>
         TypeError: unorderable types: int() < str()
 
-    We get:
+    we get a `tinymr.errors.UnorderableKeys` exception.
 
-        >>> sorter(['1', 1])
+    Python 2 is much more forgiving of unorderable types so the example above
+    does not raise an exception.
 
     Parameters
     ----------

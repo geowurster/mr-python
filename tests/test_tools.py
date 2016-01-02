@@ -157,8 +157,9 @@ def test_sorter():
 
 def test_sorter_exceptions():
 
-    with pytest.raises(errors.UnorderableKeys):
-        tools.sorter(['1', 1])
+    if not six.PY2:
+        with pytest.raises(errors.UnorderableKeys):
+            tools.sorter(['1', 1])
 
     def _k(v):
         raise TypeError('bad')
