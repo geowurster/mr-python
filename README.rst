@@ -14,6 +14,9 @@ Experimental Pythonic MapReduce inspired by `Spotify's luigi framework <http://w
 Canonical Word Count Example
 ============================
 
+Currently the only MapReduce implementation is in-memory and serial, but an
+implementation with parallelized map and reduce phases will be added.
+
 .. code-block:: python
 
     from collections import Counter
