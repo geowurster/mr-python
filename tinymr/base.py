@@ -17,6 +17,32 @@ class MRBase(object):
     used by every implementation.
     """
 
+    _closed = False
+
+    def __enter__(self):
+
+        """
+        See `__exit__` for context manager usage.
+        """
+
+        if self.closed:
+            raise IOError("MapReduce task is closed - cannot reuse.")
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+
+        """
+        Some MapReduce jobs benefit from storing data on the task class, but
+        this data
+        """
+
+        self._closed = True
+        self.close()
+
+    def __del__(self):
+        self.close()
+
     @property
     def sort_map(self):
 
@@ -69,6 +95,32 @@ class MRBase(object):
 
         return True
 
+    @property
+    def closed(self):
+
+        """
+        Indicates whether or not the MapReduce task is closed.
+
+        Returns
+        -------
+        bool
+        """
+
+        return self._closed
+
+    def close(self):
+
+        """
+        Allows the user an opportunity to destroy any connections or data
+        structures created in an `init` step.  See `__exit__` for more
+        information.  Note that the task will only be marked as `closed` if
+        used as a context manager or if this method sets `_closed = True`.
+
+        If a task does not need a teardown step then the instance can be
+        re-used multiple times with different datasets as long as it is _not_
+        used as a context manager.
+        """
+
     def mapper(self, item):
 
         """
@@ -107,6 +159,14 @@ class MRBase(object):
         """
 
         raise NotImplementedError
+
+    def init_reduce(self):
+
+        """
+        Called immediately prior to the reduce phase and gives the user an
+        opportunity to make adjustments now that the entire dataset has been
+        observed in the map phase.
+        """
 
     def reducer(self, key, values):
 
