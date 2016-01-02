@@ -8,9 +8,9 @@ import multiprocessing as mp
 
 import six
 
-import mrpython as mr
-import mrpython.base
-import mrpython.tools
+import tinymr as mr
+import tinymr.base
+import tinymr.tools
 
 
 # class MRParallelNoSort(mr.base.MRBase):

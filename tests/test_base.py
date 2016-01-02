@@ -1,12 +1,11 @@
 """
-Unittests for mrpython.base
+Unittests for tinymr.base
 """
 
 
 import pytest
 
-from mrpython import base
-
+from tinymr import base
 
 
 def test_not_implemented_methods():

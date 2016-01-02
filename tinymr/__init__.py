@@ -8,7 +8,7 @@ Heavily inspired by Spotify's Luigi framework - github.com/Spotify/Luigi
 __version__ = '0.1'
 __author__ = 'Kevin Wurster'
 __email__ = 'wursterk@gmail.com'
-__source__ = 'https://github.com/geowurster/mr-python'
+__source__ = 'https://github.com/geowurster/tinymr'
 __license__ = '''
 New BSD License
 
@@ -25,7 +25,7 @@ modification, are permitted provided that the following conditions are met:
   this list of conditions and the following disclaimer in the documentation
   and/or other materials provided with the distribution.
 
-* The names of mr-python or its contributors may not be used to endorse or
+* The names of tinymr or its contributors may not be used to endorse or
   promote products derived from this software without specific prior written
   permission.
 
