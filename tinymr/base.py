@@ -10,6 +10,8 @@ from itertools import chain
 from tinymr import errors
 from tinymr import tools
 
+import six
+
 
 class MRBase(object):
 
@@ -45,6 +47,20 @@ class MRBase(object):
         self.close()
 
     @property
+    def sort(self):
+
+        """
+        Disable all sorting phases.  Setting individual properties overrides
+        this setting for individual phases.
+
+        Returns
+        -------
+        bool
+        """
+
+        return True
+
+    @property
     def sort_map(self):
 
         """
@@ -55,7 +71,7 @@ class MRBase(object):
         bool
         """
 
-        return True
+        return self.sort
 
     @property
     def sort_combine(self):
@@ -68,7 +84,7 @@ class MRBase(object):
         bool
         """
 
-        return True
+        return self.sort
 
     @property
     def sort_final_reduce(self):
@@ -81,7 +97,7 @@ class MRBase(object):
         bool
         """
 
-        return True
+        return self.sort
 
     @property
     def sort_reduce(self):
@@ -94,7 +110,7 @@ class MRBase(object):
         bool
         """
 
-        return True
+        return self.sort
 
     @property
     def closed(self):
@@ -271,6 +287,19 @@ class MRBase(object):
             values = iter(values) if fake else tools.sorter(values, key=lambda x: x[-2])
             yield key, (v[-1] for v in values)
 
+    def _parallel_sorter(self, data):
+
+        """
+        Wrapper for `_sorter()` for use when processing in parallel.
+
+        Parameters
+        ----------
+        data : iter
+            Data for sorting.
+        """
+
+        return [[(k, tuple(v)) for k, v in self._sorter(d)] for d in data]
+
     def _map(self, stream):
 
         """
@@ -322,3 +351,50 @@ class MRBase(object):
 
         if self.closed:
             raise errors._ClosedTask
+
+    @contextmanager
+    def _merge_partitions(self, *partitions):
+
+        """
+        When processing in parallel data can be pre-partitioned within each
+        `multiprocessing` job.  Take advantage of this and merge the
+        data once it is provided by each job.
+
+        Partitioned data must look like:
+
+            (
+                key, [(key, data), (key, data), (key, data)],
+                key2, [(key2, data), (key2, data), (key2, data)],
+            )
+
+        So in a word count task with a `combiner()` one piece of partitioned
+        data might look like:
+
+            (
+                'the', [('the', 4), ('the', 2), ('the', 5)],
+                'name', [('name', 1), ('name', 4)],
+            )
+
+        Parameters
+        ----------
+        partitions : iter
+            Iterable producing pre-partitioned data.  See example above for format.
+
+        Returns
+        -------
+        defaultdict
+            See `_partition()`.
+        """
+
+        out = defaultdict(list)
+
+        try:
+
+            for ptn in partitions:
+                for key, values in ptn:
+                    out[key] += values
+
+            yield out
+
+        finally:
+            out = None
