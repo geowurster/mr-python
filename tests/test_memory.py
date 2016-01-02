@@ -7,20 +7,19 @@ import tinymr as mr
 import tinymr.memory
 
 
-def test_MRSerial_no_sort(tiny_text, tiny_text_wc_output):
+def test_MRSerial_no_sort(tiny_text, tiny_text_wc_output, mr_wordcount_memory_no_sort):
 
-    class WordCount(mr.memory.MRSerial):
-
-        def mapper(self, item):
-            for word in item.split():
-                yield word, word, 1
-
-        def reducer(self, key, values):
-            yield key, key, sum(values)
-
-        def final_reducer(self, pairs):
-            return {k: tuple(v)[0] for k, v in pairs}
-
-    text = tiny_text.splitlines()
-    actual = WordCount()(text)
+    with mr_wordcount_memory_no_sort() as wc:
+        actual = wc(tiny_text.splitlines())
     assert actual == tiny_text_wc_output
+
+
+def test_MRSerial_init_reduce(tiny_text, tiny_text_wc_output, mr_wordcount_memory_no_sort):
+
+    class WCInitReduce(mr_wordcount_memory_no_sort):
+
+        def init_reduce(self):
+            self.initialized = True
+
+    with WCInitReduce() as wc:
+        actual = wc(tiny_text.splitlines())

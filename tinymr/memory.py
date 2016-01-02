@@ -79,4 +79,5 @@ class MRSerial(mr.base.MRBase):
             if self.sort_final_reduce:
                 sorted_data = self._final_reducer_sorter(sorted_data)
 
+            self.init_reduce()
             return self.final_reducer(sorted_data)

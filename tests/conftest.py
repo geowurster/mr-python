@@ -8,6 +8,9 @@ import os
 
 import pytest
 
+import tinymr as mr
+import tinymr.memory
+
 
 @pytest.fixture(scope='function')
 def tiny_text():
@@ -31,3 +34,21 @@ def tiny_text_wc_output():
         ('something', 2),
         ('word', 2),
     ))
+
+
+@pytest.fixture(scope='function')
+def mr_wordcount_memory_no_sort():
+
+    class WordCount(mr.memory.MRSerial):
+
+        def mapper(self, item):
+            for word in item.split():
+                yield word, 1
+
+        def reducer(self, key, values):
+            yield key, sum(values)
+
+        def final_reducer(self, pairs):
+            return {k: tuple(v)[0] for k, v in pairs}
+
+    return WordCount

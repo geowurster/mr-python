@@ -40,11 +40,40 @@ def test_context_manager():
     class MR(base.MRBase):
 
         def __init__(self):
-            self.closed = False
+            self._closed = False
 
         def close(self):
-            self.closed = True
+            self._closed = True
 
     with MR() as mr:
         assert not mr.closed
     assert mr.closed
+
+
+def test_no_context_manager():
+
+    class MR(base.MRBase):
+
+        def close(self):
+            self._closed = True
+
+    mr = MR()
+    assert not mr.closed
+    mr.close()
+    assert mr.closed
+    assert not MR._closed
+    assert not MR().closed
+
+
+def test_cant_reuse_tasks():
+
+    class MR(base.MRBase):
+        pass
+
+    with MR() as mr:
+        pass
+
+    assert mr.closed
+    with pytest.raises(IOError):
+        with mr as c:
+            pass
