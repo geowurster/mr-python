@@ -1,6 +1,8 @@
-================
-MapReduce Python
-================
+======
+tinymr
+======
+
+Experimental in-memory Pythonic MapReduce inspired by `Spotify's luigi framework <http://www.github.com/Spotify/luigi>`_.
 
 .. image:: https://travis-ci.org/geowurster/tinymr.svg?branch=master
     :target: https://travis-ci.org/geowurster/tinymr?branch=master
@@ -8,11 +10,9 @@ MapReduce Python
 .. image:: https://coveralls.io/repos/geowurster/tinymr/badge.svg?branch=master
     :target: https://coveralls.io/r/geowurster/tinymr?branch=master
 
-Experimental Pythonic MapReduce inspired by `Spotify's luigi framework <http://www.github.com/Spotify/luigi>`_.
 
-
-Canonical Word Count Example
-============================
+The Word Count Example
+======================
 
 Currently the only MapReduce implementation is in-memory and serial, but an
 implementation with parallelized map and reduce phases will be added.
