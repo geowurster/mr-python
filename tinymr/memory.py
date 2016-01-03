@@ -80,7 +80,7 @@ class MRParallel(mr.base.MRBase):
         int
         """
 
-        return 1
+        return None
 
     @property
     def map_jobs(self):
@@ -168,14 +168,15 @@ class MRParallel(mr.base.MRBase):
         processing operations.
         """
 
-        try:
-            detected = len(data) % self.map_jobs
-        except TypeError:
-            detected = None
+        if self.chunksize:
+            return self.chunksize
+        else:
+            try:
+                return int(len(data) / self.map_jobs) or 1
+            except TypeError:
+                return 1
 
-        return detected or self.chunksize
-
-    def _mpcp(self, chunk_data):
+    def _mpcp(self, data):
 
         """
         Map, partition, combine, and partition a chunk of data.
@@ -187,9 +188,8 @@ class MRParallel(mr.base.MRBase):
 
         Parameters
         ----------
-        chunk_data : tuple
-            First element is the chunk ID for logging purposes and the second
-            is an iterable producing the data to process.
+        data : tuple
+            Data to process.
 
         Returns
         -------
@@ -201,26 +201,19 @@ class MRParallel(mr.base.MRBase):
         #   We're already inside a multiprocessing job so we could pre-sort
         #   combined data as well and then do a heapq sort if `self.sort_combine=True`.
 
-        chunk, data = chunk_data
-
-        logger.debug("Running map and partition for chunk %s", chunk)
         with self._partition(self._map(data)) as partitioned:
 
-            logger.debug("Sorting data for chunk %s", chunk)
             sorted_data = self._sorter(six.iteritems(partitioned), fake=not self.sort_map)
 
             try:
-                logger.debug("Combining data for chunk %s", chunk)
                 combined = self._combine(sorted_data)
             except mr.errors.CombinerNotImplemented:
-                logger.debug("No combiner implemented")
                 combined = sorted_data
 
-        logger.debug("Pre-partitioning data for chunk %s", chunk)
         with self._partition(combined) as partitioned:
             return tuple(six.iteritems(partitioned))
 
-    def _rp(self, chunk_data):
+    def _rp(self, data):
 
         """
         Reduce and partition.
@@ -231,76 +224,61 @@ class MRParallel(mr.base.MRBase):
 
         # TODO: Smarter sorting (see _mpcp)?
 
-        chunk, data = chunk_data
-
-        logger.debug("Reducing and partitioning data for chunk %s", chunk)
         with self._partition(self._reduce(data)) as partitioned:
-            return tuple(six.iteritems(partitioned))
+                return tuple(six.iteritems(partitioned))
+
+    def _parallel_sort_partitioned(self, partitioned, fake=False):
+
+        if not fake:
+
+            sort_chunks = self.sort_chunksize or self._get_default_chunksize(partitioned)
+
+            with closing(mp.Pool(self.sort_jobs)) as pool:
+                it = mr.tools.slicer(partitioned, sort_chunks)
+                logger.debug("Sorting data with %s chunks and %s jobs ...", sort_chunks, self.sort_jobs)
+                sorted_data = tuple(chain(*pool.imap_unordered(self._parallel_sorter, it)))
+        else:
+            logger.debug("Skipping sort combine")
+            sorted_data = tuple((k, tuple(v)) for k, v in self._sorter(
+                six.iteritems(partitioned), fake=not self.sort_combine))
+
+        return sorted_data
 
     def __call__(self, stream):
 
-        # TODO: This can be simplified through abstraction to remove redundant code.  See sorting especially.
-
-        # ==== Validate ==== #
-
-        logger.debug("Validating task")
         self._runtime_validate()
 
-        # ==== Map + Combine ==== #
+        logger.debug("Got a stream of data: %s", type(stream))
+
+        # Map + combine
 
         map_chunks = self.map_chunksize or self._get_default_chunksize(stream)
-        logger.debug("Starting map + combine phase with chunksize %s", map_chunks)
+        logger.debug("Starting map + combine phase with chunksize %s and %s jobs", map_chunks, self.map_jobs)
         with closing(mp.Pool(self.map_jobs)) as pool:
-            it = enumerate(mr.tools.slicer(stream, map_chunks))
+            it = mr.tools.slicer(stream, map_chunks)
             combined = tuple(chain(*pool.imap_unordered(self._mpcp, it)))
 
-        # ==== Partition ==== #
+        # Partition
 
         logger.debug("Merging partitions ...")
         with self._merge_partitions(combined) as partitioned:
 
-            if self.sort_combine:
+            sorted_data = self._parallel_sort_partitioned(partitioned, fake=not self.sort_combine)
 
-                sort_chunks = self.sort_chunksize or self._get_default_chunksize(partitioned)
-                logger.debug("Set sort chunks to %s", sort_chunks)
-
-                with closing(mp.Pool(self.sort_jobs)) as pool:
-                    partitioned = six.iteritems(partitioned)
-                    it = mr.tools.slicer(partitioned, sort_chunks)
-                    logger.debug("Sorting data with %s chunks ...", sort_chunks)
-                    sorted_data = tuple(chain(*pool.imap_unordered(self._parallel_sorter, it)))
-            else:
-                logger.debug("Skipping sort combine")
-                sorted_data = tuple((k, tuple(v)) for k, v in self._sorter(
-                    six.iteritems(partitioned), fake=not self.sort_combine))
-
-        # ==== Reduce ==== #
+        # Reduce
 
         reduce_chunks = self.reduce_chunksize or self._get_default_chunksize(partitioned)
-        logger.debug("Starting reduce phase with chunksize %s", reduce_chunks)
+        logger.debug("Starting reduce phase with chunksize %s and %s jobs", reduce_chunks, self.reduce_jobs)
         with closing(mp.Pool(self.reduce_jobs)) as pool:
-            it = enumerate(mr.tools.slicer(sorted_data, reduce_chunks))
+            it = mr.tools.slicer(sorted_data, reduce_chunks)
             reduced = tuple(chain(*pool.imap_unordered(self._rp, it)))
 
         logger.debug("Merging partitions ...")
         with self._merge_partitions(reduced) as partitioned:
 
-            if self.sort_combine:
+            sorted_data = self._parallel_sort_partitioned(partitioned, fake=not self.sort_reduce)
 
-                sort_chunks = self.sort_chunksize or self._get_default_chunksize(partitioned)
-                logger.debug("Set sort chunks to %s", sort_chunks)
-
-                with closing(mp.Pool(self.sort_jobs)) as pool:
-                    partitioned = six.iteritems(partitioned)
-                    it = mr.tools.slicer(partitioned, sort_chunks)
-                    logger.debug("Sorting data with %s chunks ...", sort_chunks)
-                    sorted_data = tuple(chain(*pool.imap_unordered(self._parallel_sorter, it)))
-            else:
-                logger.debug("Skipping sort reduce")
-                sorted_data = self._sorter(
-                    six.iteritems(partitioned), fake=not self.sort_combine)
-
-        # ==== Final Reduce ==== #
+        # Final reduce
 
         if self.sort_final_reduce:
             logger.debug("Sorting data by key for the final reducer ...")

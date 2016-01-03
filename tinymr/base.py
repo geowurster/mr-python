@@ -298,7 +298,7 @@ class MRBase(object):
             Data for sorting.
         """
 
-        return [[(k, tuple(v)) for k, v in self._sorter(d)] for d in data]
+        return [(k, tuple(v)) for k, v in self._sorter(data)]
 
     def _map(self, stream):
 

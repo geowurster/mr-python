@@ -3,7 +3,6 @@ Unittests for tinymr.tools
 """
 
 
-import pickle
 from multiprocessing.pool import IMapUnorderedIterator
 from types import GeneratorType
 
