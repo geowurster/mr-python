@@ -3,7 +3,8 @@ In-memory MapReduce - for those weird use cases ...
 """
 
 
-from contextlib import closing
+from collections import defaultdict
+from contextlib import contextmanager
 from itertools import chain
 import logging
 import multiprocessing as mp
@@ -58,8 +59,7 @@ class MRParallel(mr.base.MRBase):
     def jobs(self):
 
         """
-        Default number of `multiprocessing` jobs to use.  Can set this instead
-        of setting each property individually.
+        Default number of jobs to run in parallel for each phase.
 
         Returns
         -------
@@ -69,24 +69,11 @@ class MRParallel(mr.base.MRBase):
         return 1
 
     @property
-    def chunksize(self):
-
-        """
-        Default amount of data to process in each `multiprocessing` job.  Can
-        set this instead of setting each property individually.
-
-        Returns
-        -------
-        int
-        """
-
-        return None
-
-    @property
     def map_jobs(self):
 
         """
-        Number of map operations to run in parallel.
+        Number of jobs to run in parallel during the map phase.  Defaults
+        to `jobs` property.
 
         Returns
         -------
@@ -94,55 +81,13 @@ class MRParallel(mr.base.MRBase):
         """
 
         return self.jobs
-
-    @property
-    def map_chunksize(self):
-
-        """
-        Maximum number of items to send to each map operation.  The input
-        stream is sliced into chunks with `tinymr.tools.slicer()`.  If `None`
-        and the input stream has a `__len__()`, the data is spread evenly
-        across `map_jobs`, otherwise the default is `1`.
-
-        Returns
-        -------
-        int or None
-        """
-
-        return None
-
-    @property
-    def reduce_jobs(self):
-
-        """
-        Number of reduce operations to run in parallel.
-
-        Returns
-        -------
-        int
-        """
-
-        return self.jobs
-
-    @property
-    def reduce_chunksize(self):
-
-        """
-        Maximum number keys to send to each reduce operation.  If `None`, then
-        all keys are spread evenly across `reduce_jobs`.
-
-        Returns
-        -------
-        int or None
-        """
-
-        return None
 
     @property
     def sort_jobs(self):
 
         """
-        Number of sort operations to run in parallel.
+        Number of jobs to run in parallel during the sort phases.  Defaults
+        to `jobs` property.
 
         Returns
         -------
@@ -152,140 +97,164 @@ class MRParallel(mr.base.MRBase):
         return self.jobs
 
     @property
+    def reduce_jobs(self):
+
+        """
+        Number of jobs to run in parallel during the reduce phase.  If `None`,
+        defaults to `jobs` property.
+
+        Returns
+        -------
+        int
+        """
+
+        return self.jobs
+
+    @property
+    def chunksize(self):
+
+        """
+        Amount of data to process in each `job`.
+
+        Returns
+        -------
+        int
+        """
+
+        return 1
+
+    @property
+    def map_chunksize(self):
+
+        """
+        Amount of data to process in each `job` during the map phase.
+        Defaults to `chunksize`.
+        """
+
+        return self.chunksize
+
+    @property
     def sort_chunksize(self):
 
         """
-        Maximum number keys to send to each sort operation.  If `None`, then
-        all keys are spread evenly across `sort_jobs`.
+        Amount of data to process in each `job` during the sort phase.
+        Defaults to `chunksize`.
         """
 
-        return None
+        return self.chunksize
 
-    def _get_default_chunksize(self, data):
+    @property
+    def reduce_chunksize(self):
 
         """
-        Figure out how many chunks the data should be split into for parallel
-        processing operations.
+        Amount of data to process in each `job` during the reduce phase.
+        Defaults to `chunksize`.
         """
 
-        if self.chunksize:
-            return self.chunksize
+        return self.chunksize
+
+    @contextmanager
+    def _runner(self, func, iterable, jobs):
+
+        if jobs == 1:
+            pool = None
+            proc = (func(i) for i in iterable)
         else:
-            try:
-                return int(len(data) / self.map_jobs) or 1
-            except TypeError:
-                return 1
+            pool = mp.Pool(jobs)
+            proc = pool.imap_unordered(func, iterable)
+
+        try:
+            yield proc
+        finally:
+            if pool is not None:
+                pool.close()
 
     def _mpcp(self, data):
 
         """
-        Map, partition, combine, and partition a chunk of data.
-
-        Data reaching this method has been split into chunks and is being
-        processed in parallel.  Since we are already in a multiprocess we can
-        partition the data we have access to so we don't have to partition
-        everything in serial.
-
-        Parameters
-        ----------
-        data : tuple
-            Data to process.
-
-        Returns
-        -------
-        iter
-            Partitioned data as `(key, tuple)` ready for `_merge_partitions()`.
+        Map, partition, combine, partition
         """
-
-        # TODO: Could be extra smart about sorting data here.
-        #   We're already inside a multiprocessing job so we could pre-sort
-        #   combined data as well and then do a heapq sort if `self.sort_combine=True`.
 
         with self._partition(self._map(data)) as partitioned:
 
             sorted_data = self._sorter(six.iteritems(partitioned), fake=not self.sort_map)
 
-            try:
-                combined = self._combine(sorted_data)
-            except mr.errors.CombinerNotImplemented:
-                combined = sorted_data
+        try:
+            self.combiner(None, None)
+            combined = self._combine(sorted_data)
+        except mr.errors.CombinerNotImplemented:
+            combined = chain(*(mr.tools.mapkey(k, values) for k, values in sorted_data))
 
         with self._partition(combined) as partitioned:
-            return tuple(six.iteritems(partitioned))
+
+            return partitioned
 
     def _rp(self, data):
 
         """
-        Reduce and partition.
-
-        We are inside a `multiprocessing` job so we can pre-partition the data
-        and merge it later.
+        Reduce, partition.
         """
 
-        # TODO: Smarter sorting (see _mpcp)?
-
         with self._partition(self._reduce(data)) as partitioned:
-                return tuple(six.iteritems(partitioned))
 
-    def _parallel_sort_partitioned(self, partitioned, fake=False):
+            return partitioned
 
-        if not fake:
+    def _parallel_sorter(self, data, fake=False):
 
-            sort_chunks = self.sort_chunksize or self._get_default_chunksize(partitioned)
+            """
+            Wrapper for `_sorter()` for use when processing in parallel.
 
-            with closing(mp.Pool(self.sort_jobs)) as pool:
-                it = mr.tools.slicer(partitioned, sort_chunks)
-                logger.debug("Sorting data with %s chunks and %s jobs ...", sort_chunks, self.sort_jobs)
-                sorted_data = tuple(chain(*pool.imap_unordered(self._parallel_sorter, it)))
-        else:
-            logger.debug("Skipping sort combine")
-            sorted_data = tuple((k, tuple(v)) for k, v in self._sorter(
-                six.iteritems(partitioned), fake=not self.sort_combine))
+            Parameters
+            ----------
+            data : iter
+                Data for sorting.
+            """
 
-        return sorted_data
+            return [(k, tuple(v)) for k, v in self._sorter(data)]
+
+    @contextmanager
+    def _merge_partitions(self, partitions, sort=True):
+
+        out = defaultdict(list)
+
+        try:
+            for key, values in chain(*(six.iteritems(ptn) for ptn in partitions)):
+                out[key] += list(values)
+
+            if sort:
+                sliced = mr.tools.slicer(six.iteritems(out), self.sort_chunksize)
+                with self._runner(self._parallel_sorter, sliced, self.sort_jobs) as sorted_data:
+                    yield chain(*sorted_data)
+
+            else:
+                yield [(k, tuple(v)) for k, v in self._sorter(six.iteritems(out), fake=not sort)]
+
+        finally:
+            out = None
 
     def __call__(self, stream):
 
+        # TODO: Figure out how/if these with statements are correct, AFTER writing tests
+
         self._runtime_validate()
 
-        logger.debug("Got a stream of data: %s", type(stream))
+        sliced = mr.tools.slicer(stream, self.map_chunksize)
 
-        # Map + combine
+        # Map, partition, combine, partition
+        with self._runner(self._mpcp, sliced, self.map_jobs) as mpcp:
 
-        map_chunks = self.map_chunksize or self._get_default_chunksize(stream)
-        logger.debug("Starting map + combine phase with chunksize %s and %s jobs", map_chunks, self.map_jobs)
-        with closing(mp.Pool(self.map_jobs)) as pool:
-            it = mr.tools.slicer(stream, map_chunks)
-            combined = tuple(chain(*pool.imap_unordered(self._mpcp, it)))
+            # Merge the data that was processed in parallel
+            with self._merge_partitions(mpcp, sort=self.sort_combine) as partitioned:
 
-        # Partition
+                # Reduce, partition
+                self.init_reduce()
+                sliced = mr.tools.slicer(partitioned, self.reduce_chunksize)
+                with self._runner(self._rp, sliced, self.reduce_jobs) as rp:
 
-        logger.debug("Merging partitions ...")
-        with self._merge_partitions(combined) as partitioned:
+                    # Merge the partitioned data that was processed in parallel
+                    with self._merge_partitions(rp, sort=self.sort_reduce) as partitioned:
 
-            sorted_data = self._parallel_sort_partitioned(partitioned, fake=not self.sort_combine)
+                        if self.sort_final_reduce:
+                            partitioned = self._final_reducer_sorter(partitioned)
 
-        # Reduce
-
-        reduce_chunks = self.reduce_chunksize or self._get_default_chunksize(partitioned)
-        logger.debug("Starting reduce phase with chunksize %s and %s jobs", reduce_chunks, self.reduce_jobs)
-        with closing(mp.Pool(self.reduce_jobs)) as pool:
-            it = mr.tools.slicer(sorted_data, reduce_chunks)
-            reduced = tuple(chain(*pool.imap_unordered(self._rp, it)))
-
-        logger.debug("Merging partitions ...")
-        with self._merge_partitions(reduced) as partitioned:
-
-            sorted_data = self._parallel_sort_partitioned(partitioned, fake=not self.sort_reduce)
-
-        # Final reduce
-
-        if self.sort_final_reduce:
-            logger.debug("Sorting data by key for the final reducer ...")
-            sorted_data = self._final_reducer_sorter(sorted_data)
-
-        logger.debug("Initializing reduce ...")
-        self.init_reduce()
-
-        logger.debug("Starting final reducer ...")
-        return self.final_reducer(sorted_data)
+                        return self.final_reducer(partitioned)

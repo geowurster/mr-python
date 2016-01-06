@@ -62,81 +62,81 @@ def test_runner():
         tools.runner(None, None, -1)
 
 
-class TestDefaultUnorderedDict:
-
-    def setup_method(self, method):
-        self.d = tools.DefaultOrderedDict(list)
-
-    def test_repr(self):
-        assert self.d.__class__.__name__ in repr(self.d)
-
-    def test_present_key(self):
-        self.d['key'] = 'value'
-        assert self.d['key'] == 'value'
-
-    def test_missing_key(self):
-        assert self.d['missing'] == []
-
-    def test_bool_true(self):
-        self.d[None] = 'word'
-        assert self.d
-
-    def test_bool_false(self):
-        assert not self.d
-
-    def test_not_present(self):
-        d = tools
-
-    def test_exceptions(self):
-        with pytest.raises(TypeError):
-            tools.DefaultOrderedDict(None)
-
-    def test_copy(self):
-        self.d['key1'] = 'v1'
-        self.d['key2'] = 'v2'
-        c = self.d.copy()
-        assert isinstance(c, tools.DefaultOrderedDict)
-        assert self.d['key1'] == 'v1'
-        assert self.d['key2'] == 'v2'
-        self.d['key1'] = None
-        assert c['key1'] == 'v1'
-        assert len(c) == 2
-        assert list(c.keys()) == ['key1', 'key2']
-        assert list(c.values()) == ['v1', 'v2']
-        assert c.default_factory is list
-
-    def test_sorted_keys(self):
-
-        """
-        Verify that keys maintain their insert position.
-        """
-
-        # Set values
-        it = list(range(10))
-        for i in it:
-            self.d[i] = i + 1
-
-        # Check values
-        for k, v in self.d.items():
-            assert k + 1 == v
-
-        # Check sorting
-        assert list(self.d.keys()) == it
-        assert sorted(self.d.keys()) == it
-
-    def test_unsorted_keys(self):
-
-        """
-        Verify that unsorted keys remain the the same unsorted order.
-        """
-
-        for i in range(5):
-            self.d[i] = i + 1
-        for i in reversed(range(30, 35)):
-            self.d[i] = i + 1
-
-        assert list(self.d.keys()) == [0, 1, 2, 3, 4, 34, 33, 32, 31, 30]
-        assert len(self.d.keys()) == 10
+# class TestDefaultOrderedDict:
+#
+#     def setup_method(self, method):
+#         self.d = tools.DefaultOrderedDict(list)
+#
+#     def test_repr(self):
+#         assert self.d.__class__.__name__ in repr(self.d)
+#
+#     def test_present_key(self):
+#         self.d['key'] = 'value'
+#         assert self.d['key'] == 'value'
+#
+#     def test_missing_key(self):
+#         assert self.d['missing'] == []
+#
+#     def test_bool_true(self):
+#         self.d[None] = 'word'
+#         assert self.d
+#
+#     def test_bool_false(self):
+#         assert not self.d
+#
+#     def test_not_present(self):
+#         d = tools
+#
+#     def test_exceptions(self):
+#         with pytest.raises(TypeError):
+#             tools.DefaultOrderedDict(None)
+#
+#     def test_copy(self):
+#         self.d['key1'] = 'v1'
+#         self.d['key2'] = 'v2'
+#         c = self.d.copy()
+#         assert isinstance(c, tools.DefaultOrderedDict)
+#         assert self.d['key1'] == 'v1'
+#         assert self.d['key2'] == 'v2'
+#         self.d['key1'] = None
+#         assert c['key1'] == 'v1'
+#         assert len(c) == 2
+#         assert list(c.keys()) == ['key1', 'key2']
+#         assert list(c.values()) == ['v1', 'v2']
+#         assert c.default_factory is list
+#
+#     def test_sorted_keys(self):
+#
+#         """
+#         Verify that keys maintain their insert position.
+#         """
+#
+#         # Set values
+#         it = list(range(10))
+#         for i in it:
+#             self.d[i] = i + 1
+#
+#         # Check values
+#         for k, v in self.d.items():
+#             assert k + 1 == v
+#
+#         # Check sorting
+#         assert list(self.d.keys()) == it
+#         assert sorted(self.d.keys()) == it
+#
+#     def test_unsorted_keys(self):
+#
+#         """
+#         Verify that unsorted keys remain the the same unsorted order.
+#         """
+#
+#         for i in range(5):
+#             self.d[i] = i + 1
+#         for i in reversed(range(30, 35)):
+#             self.d[i] = i + 1
+#
+#         assert list(self.d.keys()) == [0, 1, 2, 3, 4, 34, 33, 32, 31, 30]
+#         assert len(self.d.keys()) == 10
 
 
 def test_mapkey():
@@ -165,3 +165,36 @@ def test_sorter_exceptions():
 
     with pytest.raises(TypeError):
         tools.sorter([2, 1], key=_k)
+
+
+def test_OrderableNone():
+
+    assert isinstance(tools.OrderableNone, tools._OrderableNone)
+    assert tools.OrderableNone.obj is None
+
+    on = tools._OrderableNone()
+    for v in (-1, 0, 1):
+        assert on < v
+        assert on <= v
+        assert not on > v
+        assert not on >= v
+        assert on != v
+        assert on.obj is None
+
+    on = tools._OrderableNone(lt=False, le=False, gt=True, ge=True)
+    for v in (-1, 0, 1):
+        assert on > v
+        assert on >= v
+        assert not on < v
+        assert not on <= v
+        assert on != v
+        assert on.obj is None
+
+    on = tools._OrderableNone(eq=None)
+    assert on == on
+
+    on = tools._OrderableNone(eq=False)
+    assert not on == on
+
+    on = tools._OrderableNone(eq=True)
+    assert on == __doc__

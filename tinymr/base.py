@@ -10,8 +10,6 @@ from itertools import chain
 from tinymr import errors
 from tinymr import tools
 
-import six
-
 
 class MRBase(object):
 
@@ -286,19 +284,6 @@ class MRBase(object):
         for key, values in key_values:
             values = iter(values) if fake else tools.sorter(values, key=lambda x: x[-2])
             yield key, (v[-1] for v in values)
-
-    def _parallel_sorter(self, data):
-
-        """
-        Wrapper for `_sorter()` for use when processing in parallel.
-
-        Parameters
-        ----------
-        data : iter
-            Data for sorting.
-        """
-
-        return [(k, tuple(v)) for k, v in self._sorter(data)]
 
     def _map(self, stream):
 

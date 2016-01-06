@@ -3,9 +3,9 @@ Tools for building MapReduce implementations.
 """
 
 
-from collections import OrderedDict
 import itertools as it
 import multiprocessing as mp
+import multiprocessing.pool
 
 from six.moves import zip
 
@@ -72,29 +72,29 @@ def runner(func, iterable, jobs):
         return mp.Pool(jobs).imap_unordered(func, iterable)
 
 
-class DefaultOrderedDict(OrderedDict):
-
-    def __init__(self, default_factory, *args, **kwargs):
-
-        if not callable(default_factory):
-            raise TypeError("default_factory must be callable")
-
-        super(DefaultOrderedDict, self).__init__(*args, **kwargs)
-        self.default_factory = default_factory
-
-    def __missing__(self, key):
-        v = self.default_factory()
-        super(DefaultOrderedDict, self).__setitem__(key, v)
-        return v
-
-    def __repr__(self):
-        return "{cname}({df}, {dr})".format(
-            cname=self.__class__.__name__,
-            df=self.default_factory,
-            dr=super(DefaultOrderedDict, self).__repr__())
-
-    def copy(self):
-        return self.__class__(self.default_factory, self)
+# class DefaultOrderedDict(OrderedDict):
+#
+#     def __init__(self, default_factory, *args, **kwargs):
+#
+#         if not callable(default_factory):
+#             raise TypeError("default_factory must be callable")
+#
+#         super(DefaultOrderedDict, self).__init__(*args, **kwargs)
+#         self.default_factory = default_factory
+#
+#     def __missing__(self, key):
+#         v = self.default_factory()
+#         super(DefaultOrderedDict, self).__setitem__(key, v)
+#         return v
+#
+#     def __repr__(self):
+#         return "{cname}({df}, {dr})".format(
+#             cname=self.__class__.__name__,
+#             df=self.default_factory,
+#             dr=super(DefaultOrderedDict, self).__repr__())
+#
+#     def copy(self):
+#         return self.__class__(self.default_factory, self)
 
 
 def mapkey(key, values):
@@ -168,3 +168,89 @@ def sorter(*args, **kwargs):
             raise errors._UnorderableKeys
         else:
             raise e
+
+
+class Orderable(object):
+
+    """
+    Make any object orderable.
+    """
+
+    __slots__ = ['_obj', '_lt', '_le', '_gt', '_ge', '_eq']
+
+    def __init__(self, obj, lt=True, le=True, gt=False, ge=False, eq=False):
+
+        """
+        Default parameters make the object sort as less than or equal to.
+
+        Parameters
+        ----------
+        obj : object
+            The object being made orderable.
+        lt : bool, optional
+            Set `__lt__()` evaluation.
+        le : bool, optional
+            Set `__le__()` evaluation.
+        gt : bool, optional
+            Set `__gt__()` evaluation.
+        ge : bool, optional
+            Set `__ge__()` evaluation.
+        eq : bool or None, optional
+            Set `__eq__()` evaluation.  Set to `None` to enable a real
+            equality check.
+        """
+
+        self._obj = obj
+        self._lt = lt
+        self._le = le
+        self._gt = gt
+        self._ge = ge
+        self._eq = eq
+
+    @property
+    def obj(self):
+
+        """
+        Handle to the object being made orderable.
+        """
+
+        return self._obj
+
+    def __lt__(self, other):
+        return self._lt
+
+    def __le__(self, other):
+        return self._le
+
+    def __gt__(self, other):
+        return self._gt
+
+    def __ge__(self, other):
+        return self._ge
+
+    def __eq__(self, other):
+        if self._eq is None:
+            return isinstance(other, self.__class__) and other.obj == self.obj
+        else:
+            return self._eq
+
+
+class _OrderableNone(Orderable):
+
+    """
+    Like `None` but orderable.
+    """
+
+    def __init__(self, **kwargs):
+
+        """
+        See `Orderable()` - `obj` is automatically set to `None`.
+        """
+
+        assert 'obj' not in kwargs, "Cannot supply obj argument"
+
+        super(_OrderableNone, self).__init__(None, **kwargs)
+
+
+# Instantiate so we can make it more None-like
+OrderableNone = _OrderableNone(eq=False)
