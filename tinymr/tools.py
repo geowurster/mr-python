@@ -123,7 +123,7 @@ def mapkey(key, values):
     iter
     """
 
-    return zip(it.cycle([key]), values)
+    return zip(it.repeat(key), values)
 
 
 def sorter(*args, **kwargs):
