@@ -11,7 +11,7 @@ from tinymr import errors
 from tinymr import tools
 
 
-class MRBase(object):
+class BaseMapReduce(object):
 
     """
     Base class for various MapReduce implementations.  Not all methods are
@@ -337,49 +337,49 @@ class MRBase(object):
         if self.closed:
             raise errors._ClosedTask
 
-    @contextmanager
-    def _merge_partitions(self, *partitions):
-
-        """
-        When processing in parallel data can be pre-partitioned within each
-        `multiprocessing` job.  Take advantage of this and merge the
-        data once it is provided by each job.
-
-        Partitioned data must look like:
-
-            (
-                key, [(key, data), (key, data), (key, data)],
-                key2, [(key2, data), (key2, data), (key2, data)],
-            )
-
-        So in a word count task with a `combiner()` one piece of partitioned
-        data might look like:
-
-            (
-                'the', [('the', 4), ('the', 2), ('the', 5)],
-                'name', [('name', 1), ('name', 4)],
-            )
-
-        Parameters
-        ----------
-        partitions : iter
-            Iterable producing pre-partitioned data.  See example above for format.
-
-        Returns
-        -------
-        defaultdict
-            See `_partition()`.
-        """
-
-        out = defaultdict(list)
-
-        try:
-
-            for ptn in partitions:
-                for key, values in ptn:
-                    out[key] += values
-
-            yield out
-
-        finally:
-            out = None
+    # @contextmanager
+    # def _merge_partitions(self, *partitions):
+    #
+    #     """
+    #     When processing in parallel data can be pre-partitioned within each
+    #     `multiprocessing` job.  Take advantage of this and merge the
+    #     data once it is provided by each job.
+    #
+    #     Partitioned data must look like:
+    #
+    #         (
+    #             key, [(key, data), (key, data), (key, data)],
+    #             key2, [(key2, data), (key2, data), (key2, data)],
+    #         )
+    #
+    #     So in a word count task with a `combiner()` one piece of partitioned
+    #     data might look like:
+    #
+    #         (
+    #             'the', [('the', 4), ('the', 2), ('the', 5)],
+    #             'name', [('name', 1), ('name', 4)],
+    #         )
+    #
+    #     Parameters
+    #     ----------
+    #     partitions : iter
+    #         Iterable producing pre-partitioned data.  See example above for format.
+    #
+    #     Returns
+    #     -------
+    #     defaultdict
+    #         See `_partition()`.
+    #     """
+    #
+    #     out = defaultdict(list)
+    #
+    #     try:
+    #
+    #         for ptn in partitions:
+    #             for key, values in ptn:
+    #                 out[key] += values
+    #
+    #         yield out
+    #
+    #     finally:
+    #         out = None

@@ -11,7 +11,7 @@ from tinymr import errors
 
 def test_not_implemented_methods():
 
-    mr = base.MRBase()
+    mr = base.BaseMapReduce()
     with pytest.raises(NotImplementedError):
         mr.mapper(None)
     with pytest.raises(errors.CombinerNotImplemented):
@@ -22,7 +22,7 @@ def test_not_implemented_methods():
 
 def test_default_settings():
 
-    mr = base.MRBase()
+    mr = base.BaseMapReduce()
     assert mr.sort_map
     assert mr.sort_combine
     assert mr.sort_reduce
@@ -31,14 +31,14 @@ def test_default_settings():
 
 def test_default_methods():
 
-    mr = base.MRBase()
+    mr = base.BaseMapReduce()
     expected = [(i, tuple(range(i))) for i in range(1, 10)]
     assert list(mr.final_reducer(expected)) == expected
 
 
 def test_context_manager():
 
-    class MR(base.MRBase):
+    class MapReduce(base.BaseMapReduce):
 
         def __init__(self):
             self._closed = False
@@ -46,32 +46,32 @@ def test_context_manager():
         def close(self):
             self._closed = True
 
-    with MR() as mr:
+    with MapReduce() as mr:
         assert not mr.closed
     assert mr.closed
 
 
 def test_no_context_manager():
 
-    class MR(base.MRBase):
+    class MapReduce(base.BaseMapReduce):
 
         def close(self):
             self._closed = True
 
-    mr = MR()
+    mr = MapReduce()
     assert not mr.closed
     mr.close()
     assert mr.closed
-    assert not MR._closed
-    assert not MR().closed
+    assert not MapReduce._closed
+    assert not MapReduce().closed
 
 
 def test_cant_reuse_tasks():
 
-    class MR(base.MRBase):
+    class MapReduce(base.BaseMapReduce):
         pass
 
-    with MR() as mr:
+    with MapReduce() as mr:
         pass
 
     assert mr.closed
@@ -82,8 +82,8 @@ def test_cant_reuse_tasks():
 
 def test_runtime_validate():
 
-    class MR(base.MRBase):
+    class MapReduce(base.BaseMapReduce):
         closed = True
 
     with pytest.raises(errors.ClosedTask):
-        MR()._runtime_validate()
+        MapReduce()._runtime_validate()

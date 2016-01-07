@@ -21,35 +21,35 @@ logger = logging.getLogger('tinymr')
 logger.setLevel(logging.DEBUG)
 
 
-class MRSerial(mr.base.MRBase):
+# class MRSerial(mr.base.MRBase):
+#
+#     """
+#     For MapReduce operations that don't benefit from sorting or parallelism.
+#
+#     The `mapper()` and `reducer()` must yield 2 element tuples.  The first
+#     element is used for partitioning and the second is data.
+#     """
+#
+#     def __call__(self, stream):
+#
+#         self._runtime_validate()
+#
+#         with self._partition(self._map(stream)) as partitioned:
+#
+#             sorted_data = self._sorter(six.iteritems(partitioned), fake=not self.sort_map)
+#
+#         with self._partition(self._reduce(sorted_data)) as partitioned:
+#
+#             sorted_data = self._sorter(six.iteritems(partitioned), fake=not self.sort_reduce)
+#
+#             if self.sort_final_reduce:
+#                 sorted_data = self._final_reducer_sorter(sorted_data)
+#
+#             self.init_reduce()
+#             return self.final_reducer(sorted_data)
 
-    """
-    For MapReduce operations that don't benefit from sorting or parallelism.
 
-    The `mapper()` and `reducer()` must yield 2 element tuples.  The first
-    element is used for partitioning and the second is data.
-    """
-
-    def __call__(self, stream):
-
-        self._runtime_validate()
-
-        with self._partition(self._map(stream)) as partitioned:
-
-            sorted_data = self._sorter(six.iteritems(partitioned), fake=not self.sort_map)
-
-        with self._partition(self._reduce(sorted_data)) as partitioned:
-
-            sorted_data = self._sorter(six.iteritems(partitioned), fake=not self.sort_reduce)
-
-            if self.sort_final_reduce:
-                sorted_data = self._final_reducer_sorter(sorted_data)
-
-            self.init_reduce()
-            return self.final_reducer(sorted_data)
-
-
-class MRParallel(mr.base.MRBase):
+class MapReduce(mr.base.BaseMapReduce):
 
     """
     Parallelized map and reduce with an optional combine phase.
