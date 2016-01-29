@@ -26,6 +26,9 @@ class MapReduce(base.BaseMapReduce):
         with runner(self._map_combine_partition, sliced, self.map_jobs) as mcp:
             partitioned = tools.merge_partitions(*mcp, sort=self.sort_combine)
 
+        self.init_reduce()
+
+        # Run all partition jobs
         reducer_input = partitioned
         for rj in self._reduce_jobs:
 
