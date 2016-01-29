@@ -68,7 +68,7 @@ def test_MapReduce_sort():
 
     for attr in ('jobs', 'map_jobs', 'sort_jobs', 'reduce_jobs'):
         assert getattr(wc, attr) == 1
-    for attr in ('sort', 'sort_map', 'sort_combine', 'sort_reduce', 'sort_final_reduce'):
+    for attr in ('sort', 'sort_map', 'sort_combine', 'sort_reduce', 'sort_output'):
         assert getattr(wc, attr)
     for attr in ('chunksize', 'map_chunksize', 'reduce_chunksize', 'sort_chunksize'):
         assert getattr(wc, attr) == 10
@@ -125,7 +125,7 @@ def test_MapReduce_no_sort():
     wc = WordCount()
     for attr in ('jobs', 'map_jobs', 'sort_jobs', 'reduce_jobs'):
         assert getattr(wc, attr) == 1
-    for attr in ('sort', 'sort_map', 'sort_combine', 'sort_reduce', 'sort_final_reduce'):
+    for attr in ('sort', 'sort_map', 'sort_combine', 'sort_reduce', 'sort_output'):
         assert getattr(wc, attr) is False
     for attr in ('chunksize', 'map_chunksize', 'reduce_chunksize', 'sort_chunksize'):
         assert getattr(wc, attr) == 10
@@ -186,7 +186,7 @@ def test_MapReduce_parallel_sort():
 
     for attr in ('jobs', 'map_jobs', 'sort_jobs', 'reduce_jobs'):
         assert getattr(wc, attr) == 4
-    for attr in ('sort', 'sort_map', 'sort_combine', 'sort_reduce', 'sort_final_reduce'):
+    for attr in ('sort', 'sort_map', 'sort_combine', 'sort_reduce', 'sort_output'):
         assert getattr(wc, attr)
     for attr in ('chunksize', 'map_chunksize', 'reduce_chunksize', 'sort_chunksize'):
         assert getattr(wc, attr) == 10
