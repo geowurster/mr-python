@@ -3,12 +3,15 @@ Tools for building MapReduce implementations.
 """
 
 
+from collections import defaultdict
+import heapq
 import itertools as it
 import multiprocessing as mp
-import multiprocessing.pool
 
+import six
 from six.moves import zip
 
+from tinymr._backport_heapq import merge as heapq_merge
 from tinymr import errors
 
 
@@ -48,53 +51,73 @@ def slicer(iterable, chunksize):
             raise StopIteration
 
 
-def runner(func, iterable, jobs):
+class runner(object):
 
     """
     The `multiprocessing` module can be difficult to debug and introduces some
     overhead that isn't needed when only running one job.  Use a generator in
     this case instead.
 
-    Parameters
-    ----------
-    func : callable
-        Callable object to map across `iterable`.
-    iterable : iter
-        Data to process.
-    jobs : int
+    Wrapped in a class to make the context syntax optional.
     """
 
-    if jobs < 1:
-        raise ValueError("jobs must be >= 1, not: {}".format(jobs))
-    elif jobs == 1:
-        return (func(i) for i in iterable)
-    else:
-        return mp.Pool(jobs).imap_unordered(func, iterable)
+    def __init__(self, func, iterable, jobs):
 
+        """
+        Parameters
+        ----------
+        func : callable
+            Callable object to map across `iterable`.
+        iterable : iter
+            Data to process.
+        jobs : int
+            Number of `multiprocessing` jobs.
+        """
 
-# class DefaultOrderedDict(OrderedDict):
-#
-#     def __init__(self, default_factory, *args, **kwargs):
-#
-#         if not callable(default_factory):
-#             raise TypeError("default_factory must be callable")
-#
-#         super(DefaultOrderedDict, self).__init__(*args, **kwargs)
-#         self.default_factory = default_factory
-#
-#     def __missing__(self, key):
-#         v = self.default_factory()
-#         super(DefaultOrderedDict, self).__setitem__(key, v)
-#         return v
-#
-#     def __repr__(self):
-#         return "{cname}({df}, {dr})".format(
-#             cname=self.__class__.__name__,
-#             df=self.default_factory,
-#             dr=super(DefaultOrderedDict, self).__repr__())
-#
-#     def copy(self):
-#         return self.__class__(self.default_factory, self)
+        self._func = func
+        self._iterable = iterable
+        self._jobs = jobs
+        self._closed = False
+
+        if jobs < 1:
+            raise ValueError("jobs must be >= 1, not: {}".format(jobs))
+        elif jobs == 1:
+            self._pool = None
+            self._proc = (func(i) for i in iterable)
+        else:
+            self._pool = mp.Pool(jobs)
+            self._proc = self._pool.imap_unordered(func, iterable)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __repr__(self):
+        return "{cname}(func={func}, iterable={iterable}, jobs={jobs})".format(
+            cname=self.__class__.__name__,
+            func=repr(self._func),
+            iterable=repr(self._iterable),
+            jobs=self._jobs)
+
+    def __iter__(self):
+        return self._proc
+
+    def __next__(self):
+        return next(self._proc)
+
+    next = __next__
+
+    def close(self):
+
+        """
+        Close the `multiprocessing` pool if we're using it.
+        """
+
+        if self._pool is not None:
+            self._pool.close()
+        self._closed = True
 
 
 def mapkey(key, values):
@@ -170,6 +193,41 @@ def sorter(*args, **kwargs):
             raise e
 
 
+def partition(key_values):
+
+    """
+    Given a stream of `(key, value)` tuples, group them by key into a dict.
+    Equivalent to the code below, but faster:
+
+        >>> from itertools import groupby
+        >>> {k: list(v) for k, v in groupby(key_values, key=lambda x: x[0])}
+
+    Example:
+
+        >>> data = [('key1', 1), ('key1', 2), ('key2', None)]
+        >>> partition(data)
+        {
+            'key1': [('key1', 1), ('key1', 2)],
+            'key2': [('key2', None)]
+        }
+
+    Parameters
+    ----------
+    key_values : iter
+        Tuples - typically `(key, value)`, although only the first key is
+
+    Returns
+    -------
+    dict
+    """
+
+    out = defaultdict(list)
+    for data in key_values:
+        out[data[0]].append(data[1:])
+
+    return dict(out)
+
+
 class Orderable(object):
 
     """
@@ -241,16 +299,52 @@ class _OrderableNone(Orderable):
     Like `None` but orderable.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self):
 
         """
-        See `Orderable()` - `obj` is automatically set to `None`.
+        Use the instantiated `OrderableNone` variable.
         """
 
-        assert 'obj' not in kwargs, "Cannot supply obj argument"
-
-        super(_OrderableNone, self).__init__(None, **kwargs)
+        super(_OrderableNone, self).__init__(None, eq=None)
 
 
 # Instantiate so we can make it more None-like
-OrderableNone = _OrderableNone(eq=False)
+OrderableNone = _OrderableNone()
+
+
+def merge_partitions(*partitions, **kwargs):
+
+    """
+    Merge data from multiple `partition()` operations into one dictionary.
+
+    Parameters
+    ----------
+    partitions : *args
+        Dictionaries from `partition()`.
+    sort : bool, optional
+        Sort partitioned data as it is merged.  Uses `heapq.merge()` so within
+        each partition's key, all values must be sorted smallest to largest.
+
+    Returns
+    -------
+    dict
+        {key: [values]}
+    """
+
+    sort = kwargs.pop('sort', False)
+    assert not kwargs, "Unrecognized kwargs: {}".format(kwargs)
+
+    partitions = (six.iteritems(ptn) if isinstance(ptn, dict) else ptn for ptn in partitions)
+
+    out = defaultdict(list)
+
+    if not sort:
+        for ptn in partitions:
+            for key, values in ptn:
+                out[key].extend(values)
+    else:
+        for ptn in partitions:
+            for key, values in ptn:
+                out[key] = tuple(heapq_merge(out[key], values, key=lambda x: x[0]))
+
+    return dict(out)
