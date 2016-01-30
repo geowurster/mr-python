@@ -7,6 +7,8 @@ from collections import namedtuple
 
 import six
 
+from tinymr.tools import sorter
+
 
 def strip_sort_key(kv_stream):
 
@@ -77,7 +79,7 @@ def sort_partitioned_values(kv_stream):
     """
 
     kv_stream = six.iteritems(kv_stream) if isinstance(kv_stream, dict) else kv_stream
-    return ((k, sorted(v, key=lambda x: x[0])) for k, v in kv_stream)
+    return ((k, sorter(v, key=lambda x: x[0])) for k, v in kv_stream)
 
 
 class ReduceJob(namedtuple('ReduceJob', ['reducer', 'sort', 'jobs', 'chunksize'])):
