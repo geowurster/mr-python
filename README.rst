@@ -24,11 +24,10 @@ implementation with parallelized map and reduce phases will be added.
     import re
     import sys
 
-    import tinymr as mr
-    import tinymr as memory
+    from tinymr.memory import MemMapReduce
 
 
-    class WordCount(mr.memory.MRSerial):
+    class WordCount(MemMapReduce):
 
         """
         The go-to MapReduce example.
