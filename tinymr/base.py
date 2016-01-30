@@ -320,7 +320,9 @@ class BaseMapReduce(object):
     @property
     def _reduce_jobs(self):
 
-        reducers = sorted(filter(lambda x: not x.startswith('_') and 'reducer' in x, dir(self)))
+        reducers = tools.sorter(filter(
+            lambda x: not x.startswith('_') and 'reducer' in x,
+            dir(self)))
 
         for r in reducers:
             yield _mrtools.ReduceJob(
@@ -330,6 +332,24 @@ class BaseMapReduce(object):
                 chunksize=getattr(self, '{}_jobs'.format(r.replace('reducer', 'reduce'))))
 
     def _map_combine_partition(self, stream):
+
+        """
+        Run `mapper()`, partition, `combiner()` (if implemented) and partition
+        on a chunk of input data.  Data may be sorted between each phase
+        according to the control properties.
+
+        Produces a dictionary of partitioned data with sort keys intact.
+
+        Parameters
+        ----------
+        stream : iter
+            Input data passed to the MapReduce task.
+
+        Returns
+        -------
+        dict
+            {key: [(sort, data), (sort, data), ...]}
+        """
 
         # Map, partition, and convert back to a `(key, [v, a, l, u, e, s])` stream
         mapped = chain(*(self.mapper(item) for item in stream))
@@ -368,7 +388,7 @@ class BaseMapReduce(object):
         if has_combiner and self.sort_combine:
             combine_partitioned = _mrtools.sort_partitioned_values(combine_partitioned)
 
-        return tuple(combine_partitioned)
+        return dict(combine_partitioned)
 
     def _reduce_partition(self, stream, reducer, sort):
 
