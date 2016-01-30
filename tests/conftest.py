@@ -39,7 +39,7 @@ def tiny_text_wc_output():
 @pytest.fixture(scope='function')
 def mr_wordcount_memory_no_sort():
 
-    class WordCount(mr.memory.MRSerial):
+    class WordCount(mr.memory.MapReduce):
 
         def mapper(self, item):
             for word in item.split():
@@ -48,7 +48,7 @@ def mr_wordcount_memory_no_sort():
         def reducer(self, key, values):
             yield key, sum(values)
 
-        def final_reducer(self, pairs):
+        def output(self, pairs):
             return {k: tuple(v)[0] for k, v in pairs}
 
     return WordCount

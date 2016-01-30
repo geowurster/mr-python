@@ -5,6 +5,10 @@ Heavily inspired by Spotify's Luigi framework - github.com/Spotify/Luigi
 """
 
 
+import logging
+logging.basicConfig()
+
+
 __version__ = '0.1'
 __author__ = 'Kevin Wurster'
 __email__ = 'wursterk@gmail.com'

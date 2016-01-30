@@ -105,7 +105,7 @@ implementation with parallelized map and reduce phases will be added.
 
             yield key, sum(values)
 
-        def final_reducer(self, pairs):
+        def output(self, pairs):
 
             """
             Normally this phase is where the final dataset is written to disk,
@@ -186,51 +186,23 @@ that appear below match the ``word`` only because a ``sort`` key was not given.
 Words that appear in the input text on multiple lines have multiple
 ``(word, count)`` pairs.  A ``count`` of ``2`` would indicate a word that
 appeared twice on a single line, but our input data does not have this
-condition.
+condition.  Truncated output below.  The dictionary values are lists containing
+tuples to allow for a sort key, which is explained elsewhere.
 
 .. code-block:: python
 
     {
-        'use': [('use', 1)],
-        'new': [('new', 1)],
-        'above': [('above', 1)],
-        'redistributions': [('redistributions', 1)],
-        'source': [('source', 1), ('source', 1)],
-        'without': [('without', 1)],
-        'notice': [('notice', 1)],
-        'redistribution': [('redistribution', 1)],
-        'bsd': [('bsd', 1)],
-        'that': [('that', 1)],
-        'permitted': [('permitted', 1)],
-        'forms': [('forms', 1)],
-        'rights': [('rights', 1)],
-        'must': [('must', 1)],
-        'list': [('list', 1)],
-        'are': [('are', 1), ('are', 1)],
-        'with': [('with', 1)],
-        'd': [('d', 1)],
-        'license': [('license', 1)],
-        'binary': [('binary', 1)],
-        'reserved': [('reserved', 1)],
-        'or': [('or', 1)],
-        'the': [('the', 1), ('the', 1), ('the', 1)],
-        'and': [('and', 1), ('and', 1), ('and', 1)],
-        'all': [('all', 1)],
-        'met': [('met', 1)],
-        'this': [('this', 1)],
-        'provided': [('provided', 1)],
-        'of': [('of', 1), ('of', 1)],
-        'c': [('c', 1)],
-        'wurster': [('wurster', 1)],
-        'code': [('code', 1)],
-        'disclaimer': [('disclaimer', 1)],
-        'modification': [('modification', 1)],
-        'copyright': [('copyright', 1), ('copyright', 1)],
-        'retain': [('retain', 1)], 'kevin': [('kevin', 1)],
-        'conditions': [('conditions', 1), ('conditions', 1)],
-        'following': [('following', 1), ('following', 1)],
-        'in': [('in', 1)], '2015': [('2015', 1)]
+        '2015': [(1,)]
+        'above': [(1,)]
+        'all': [(1,)]
+        'and': [(1,), (1,), (1,)]
+        'are': [(1,), (1,)]
+        'binary': [(1,)]
+        'bsd': [(1,)]
+        'c': [(1,)]
+        'code': [(1,)]
     }
+
 
 **Reduce**
 
@@ -241,62 +213,31 @@ Sum ``count`` for each ``word``.
     # The ``reducer()`` receives a key and an iterator of values
     key = 'the'
     values = (1, 1, 1)
-    yield key, sum(values)
+    def reducer(key, values):
+        yield key, sum(values)
 
 **Partition**
 
 The reducer does not _have_ to produces the same key it was given, so the data
 is partitioned by key again, which is superfluous for this wordcount example.
 Again the keys are kept in case the data is sorted and only match ``word``
-because an optional ``sort`` key was not given.
+because an optional ``sort`` key was not given.  Truncated output below.
 
 .. code-block:: python
 
     {
-        'following': [('following', 2)],
-        '2015': [('2015', 1)],
-        'reserved': [('reserved', 1)],
-        'permitted': [('permitted', 1)],
-        'forms': [('forms', 1)],
-        'are': [('are', 2)],
-        'license': [('license', 1)],
-        'c': [('c', 1)],
-        'kevin': [('kevin', 1)],
-        'without': [('without', 1)],
-        'redistribution': [('redistribution', 1)],
-        'copyright': [('copyright', 2)],
-        'met': [('met', 1)],
-        'use': [('use', 1)],
-        'the': [('the', 3)],
-        'rights': [('rights', 1)],
-        'that': [('that', 1)],
-        'or': [('or', 1)],
-        'this': [('this', 1)],
-        'with': [('with', 1)],
-        'source': [('source', 2)],
-        'new': [('new', 1)],
-        'binary': [('binary', 1)],
-        'wurster': [('wurster', 1)],
-        'list': [('list', 1)],
-        'must': [('must', 1)],
-        'of': [('of', 2)],
-        'retain': [('retain', 1)],
-        'modification': [('modification', 1)],
-        'and': [('and', 3)],
-        'above': [('above', 1)],
-        'all': [('all', 1)],
-        'redistributions': [('redistributions', 1)],
-        'bsd': [('bsd', 1)],
-        'in': [('in', 1)],
-        'conditions': [('conditions', 2)],
-        'disclaimer': [('disclaimer', 1)],
-        'd': [('d', 1)],
-        'code': [('code', 1)],
-        'provided': [('provided', 1)],
-        'notice': [('notice', 1)]
+        '2015': [(1,)]
+        'above': [(1,)]
+        'all': [(1,)]
+        'and': [(3,)]
+        'are': [(2,)]
+        'binary': [(1,)]
+        'bsd': [(1,)]
+        'c': [(1,)]
+        'code': [(1,)]
     }
 
-**Final Reduce**
+**Output**
 
 The default implementation is to return ``(key, iter(values))`` pairs from the
 ``final_reducer()``, which would look something like:

@@ -3,81 +3,47 @@ In-memory MapReduce - for those weird use cases ...
 """
 
 
-from itertools import chain
-import multiprocessing as mp
+import functools
+import logging
 
-import six
-
-import tinymr as mr
-import tinymr.base
-import tinymr.tools
-
-
-# class MRParallelNoSort(mr.base.MRBase):
-#
-#     @property
-#     def jobs(self):
-#
-#         """
-#         Number of tasks to execute in parallel.
-#         """
-#
-#         return 1
-#
-#     @property
-#     def map_size(self):
-#
-#         """
-#         Number of items from the input data stream to hand to each mapper.
-#         """
-#
-#         return 1
-#
-#     def __call__(self, stream):
-#
-#         stream = mr.tools.slicer(stream, self.map_size)
-#
-#         combined = chain(
-#             *mp.Pool(self.jobs).imap_unordered(self._map_partition_combine, stream))
-#
-#         with self._partition_no_sort(combined) as partitioned:
-#             partitioned = tuple(six.iteritems(partitioned))
-#
-#         reduced = tuple(mp.Pool(self.jobs).imap_unordered(self._imap_reducer, partitioned))
-#
-#         with self._partition_no_sort(reduced) as partitioned:
-#             return self.final_reducer(six.iteritems(partitioned))
-#
-#     def _imap_reducer(self, pair):
-#
-#         """
-#         Adapter to integrate `reducer()` into the `imap_unordered()` API.
-#         """
-#
-#         return tuple(self.reducer(*pair))
+from tinymr import _mrtools
+from tinymr import base
+from tinymr import tools
+from tinymr.tools import runner
 
 
-class MRSerial(mr.base.MRBase):
+logger = logging.getLogger('tinymr')
+logger.setLevel(logging.DEBUG)
 
-    """
-    For MapReduce operations that don't benefit from sorting or parallelism.
 
-    The `mapper()` and `reducer()` must yield 2 element tuples.  The first
-    element is used for partitioning and the second is data.
-    """
+class MapReduce(base.BaseMapReduce):
 
     def __call__(self, stream):
 
-        with self._partition(self._map(stream)) as partitioned:
+        sliced = tools.slicer(stream, self.map_chunksize)
 
-            sorted_data = self._sorter(six.iteritems(partitioned), fake=self.sort_map)
+        # Map, partition, combine, partition
+        with runner(self._map_combine_partition, sliced, self.map_jobs) as mcp:
+            partitioned = tools.merge_partitions(*mcp, sort=self.sort_combine)
 
-        with self._partition(self._reduce(sorted_data)) as partitioned:
+        self.init_reduce()
 
-            sorted_data = self._sorter(six.iteritems(partitioned), fake=self.sort_reduce)
+        # Run all partition jobs
+        reducer_input = partitioned
+        for rj in self._reduce_jobs:
 
-            if self.sort_final_reduce:
-                sorted_data = self._final_reducer_sorter(sorted_data)
+            func = functools.partial(
+                self._reduce_partition, reducer=rj.reducer, sort=rj.sort)
 
-            self.init_reduce()
-            return self.final_reducer(sorted_data)
+            reducer_input = _mrtools.strip_sort_key(reducer_input)
+            sliced = tools.slicer(reducer_input, rj.chunksize)
+
+            with runner(func, sliced, rj.jobs) as reduced:
+                partitioned = tools.merge_partitions(*reduced, sort=rj.sort)
+
+        partitioned = _mrtools.strip_sort_key(partitioned)
+
+        if self.sort_output:
+            partitioned = self._output_sorter(partitioned)
+
+        return self.output(partitioned)
