@@ -19,7 +19,7 @@ from tinymr import errors
 # class so we can grab an instance method
 # We then register our improved _reduce_method() with copy_reg so pickle knows
 # what to do.
-if six.PY2:
+if six.PY2:  # pragma: no cover
     import copy_reg
 
     class _I:
