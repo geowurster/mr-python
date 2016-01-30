@@ -16,7 +16,7 @@ logger = logging.getLogger('tinymr')
 logger.setLevel(logging.DEBUG)
 
 
-class MapReduce(base.BaseMapReduce):
+class MemMapReduce(base.BaseMapReduce):
 
     def __call__(self, stream):
 

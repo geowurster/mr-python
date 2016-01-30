@@ -40,7 +40,7 @@ def test_MapReduce_sort():
         'key1 sort1 data1'
     ]
 
-    class WordCount(mr.memory.MapReduce):
+    class WordCount(mr.memory.MemMapReduce):
 
         # Make sure everything gets sent to a single map + combine
         chunksize = 10
@@ -94,7 +94,7 @@ def test_MapReduce_no_sort():
         'key1 sort1 data1'
     ]
 
-    class WordCount(mr.memory.MapReduce):
+    class WordCount(mr.memory.MemMapReduce):
 
         # Make sure everything gets sent to a single map + combine
         chunksize = 10
@@ -137,7 +137,7 @@ def test_MapReduce_no_sort():
         'key1': ('data2', 'data1')}
 
 
-class _WCParallelSort(mr.memory.MapReduce):
+class _WCParallelSort(mr.memory.MemMapReduce):
 
     """
     Define out here so we can pickle it in multiprocessing
