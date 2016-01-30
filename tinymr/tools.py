@@ -4,7 +4,6 @@ Tools for building MapReduce implementations.
 
 
 from collections import defaultdict
-import heapq
 import itertools as it
 import multiprocessing as mp
 
@@ -13,6 +12,27 @@ from six.moves import zip
 
 from tinymr._backport_heapq import merge as heapq_merge
 from tinymr import errors
+
+
+# Make instance methods pickle-able in Python 2
+# Instance methods are not available as a type, so we have to create a tiny
+# class so we can grab an instance method
+# We then register our improved _reduce_method() with copy_reg so pickle knows
+# what to do.
+if six.PY2:
+    import copy_reg
+
+    class _I:
+        def m(self):
+            pass
+
+    def _reduce_method(m):
+        if m.im_self is None:
+            return getattr, (m.im_class, m.im_func.func_name)
+        else:
+            return getattr, (m.im_self, m.im_func.func_name)
+
+    copy_reg.pickle(type(_I().m), _reduce_method)
 
 
 def slicer(iterable, chunksize):
