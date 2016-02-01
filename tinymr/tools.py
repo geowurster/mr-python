@@ -5,7 +5,9 @@ Tools for building MapReduce implementations.
 
 from collections import defaultdict
 import itertools as it
+import io
 import multiprocessing as mp
+import os
 
 import six
 from six.moves import zip
@@ -368,3 +370,126 @@ def merge_partitions(*partitions, **kwargs):
                 out[key] = tuple(heapq_merge(out[key], values, key=lambda x: x[0]))
 
     return dict(out)
+
+
+def count_lines(
+        path,
+        buffer=io.DEFAULT_BUFFER_SIZE,
+        linesep=os.linesep,
+        encoding='utf-8'):
+
+    """
+    Quickly count the number of lines in a text file.  Useful for computing
+    optimal chunksize.
+
+    Comparable to `$ wc -l` for files larger than ``~100 MB``, and significantly
+    faster as the file gets smaller (ignoring Python interpreter startup and
+    imports).
+
+    Benchmarks in seconds from Python's ``timeit`` module on a ``2.8 GHz i7``
+    with ``8 GB`` of RAM and SSD.  Default settings used for `count_lines()`.
+
+        ``4 KB`` file with ``29`` lines:
+
+            $ wc -l         0.00303
+            $ sed -n '$='   0.00295
+            count_lines()   0.00002
+
+        ``6.2 MB`` file with ``128457`` lines:
+
+            $ wc -l         0.0124
+            $ sed -n '$='   0.0608
+            count_lines()   0.00776
+
+        ``309 MB`` file with ``6422850`` lines:
+
+            $ wc -l         0.394
+            $ sed -n '$='   ~3
+            count_lines()   0.395
+
+        ``1.2 GB`` file with ``25691400`` lines:
+
+            $ wc -l         1.58
+            $ sed -n '$='   ~12
+            count_lines()   1.56
+
+    For reference just looping over all the lines in the ``1.2 GB`` file takes
+    ``~6 to 7 sec``.
+
+    Speed is achieved by reading the file in blocks and counting the occurrence
+    of `linesep`.  For `linesep` strings that are larger than ``1`` byte we
+    check to make sure a `linesep` was not split across blocks.
+
+    Scott Persinger on StackOverflow gets credit for the core logic.
+    http://stackoverflow.com/questions/845058/how-to-get-line-count-cheaply-in-python
+
+    Parameters
+    ----------
+    path : str
+        Path to input text file.
+    buffer : int, optional
+        Buffer size in bytes.
+    linesep : str, optional
+        Newline character.  Cannot be longer than 2 bytes.
+    encoding : str, optional
+        Encoding of newline character so it can be converted to `bytes()`.
+
+    Returns
+    -------
+    int
+    """
+
+    nl = bytes(linesep.encode(encoding))
+    size = os.stat(path).st_size
+
+    # File is small enough to just process in one go
+    if size < buffer:
+        with open(path, 'rb', buffering=buffer) as f:
+            return f.raw.read(buffer).count(nl)
+
+    # Process in chunks
+    else:
+
+        buff = bytearray(buffer)
+        blocks = size // buffer
+        lines = 0
+
+        with open(path, 'rb') as f:
+
+            # Optimize the loops a bit in case we are working with a REALLY
+            # big file
+            readinto = f.raw.readinto
+            count = buff.count
+
+            if len(nl) == 1:
+                for i in six.moves.xrange(blocks):
+                    readinto(buff)
+                    lines += count(nl)
+
+                # Last bit of data should be smaller than the
+                # allotted buffer.
+                # We can't read the data directly into the buffer
+                # because it would not complete overwrite the old data,
+                # so we could potentially double count some values
+
+            # linesep is something like \r\n, which means it could be split
+            # across blocks.  Check for this condition after processing each
+            # block
+            elif len(nl) == 2:
+                for i in six.moves.xrange(blocks):
+                    readinto(buff)
+                    lines += count(nl)
+                    if buff[-1] == nl[0]:
+                        lines += 1
+
+            else:
+                raise ValueError(
+                    "Cannot handle linesep characters larger than 2 bytes.")
+
+            # The last bit of data in the file is smaller than a block
+            # We can't just read this into the constant buffer because
+            # it the remaining bytes would still be populated by the
+            # previous block, which could produce duplicate counts.
+            lines += f.raw.read().count(nl)
+
+        return lines
