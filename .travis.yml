@@ -15,6 +15,7 @@ python:
   - pypy3
 
 install:
+  - pip install pip setuptools --upgrade
   - pip install -e .\[dev\]
 
 script:
