@@ -3,6 +3,7 @@ Base classes.  Subclass away!
 """
 
 
+import inspect
 from itertools import chain
 
 import six
@@ -318,18 +319,43 @@ class BaseMapReduce(object):
         return ((key, tuple(values)) for key, values in pairs)
 
     @property
-    def _reduce_jobs(self):
+    def _reduce_job_confs(self):
 
-        reducers = tools.sorter(filter(
-            lambda x: not x.startswith('_') and 'reducer' in x,
-            dir(self)))
+        """
+        The user can define multiple reduce operations, each with their own
+        independent job configuration, to be executed in a specified order.
+        This method produces one `_mrtools.ReduceJobConf()` per reduce
+        operation in execution order.
 
-        for r in reducers:
-            yield _mrtools.ReduceJob(
-                reducer=getattr(self, r),
-                sort=getattr(self, 'sort_{}'.format(r.replace('reducer', 'reduce'))),
-                jobs=getattr(self, '{}_jobs'.format(r.replace('reducer', 'reduce'))),
-                chunksize=getattr(self, '{}_jobs'.format(r.replace('reducer', 'reduce'))))
+        Returns
+        -------
+        tuple
+        """
+
+        # We encourage user's to add their own properties and methods, so
+        # we want to be really confident that we are _only_ grabbing the
+        # reducer methods, otherwise difficult to debug failures might pop up.
+        # Can't assume the reducers were defined in order.
+        reducers = {}
+        for method in (m for m in dir(self) if m != '_reduce_job_confs'):
+
+            if method.startswith('reducer') and \
+                    inspect.ismethod(getattr(self, method)):
+
+                str_idx = method.lstrip('reducer') or '-1'
+
+                sort_method = 'sort_reduce{}'.format(str_idx)
+                jobs_method = 'reduce{}_jobs'.format(str_idx)
+                chunksize_method = 'reduce{}_chunksize'.format(str_idx)
+
+                reducers[int(str_idx)] = _mrtools.ReduceJobConf(
+                    reducer=getattr(self, method),
+                    sort=getattr(self, sort_method, self.sort_reduce),
+                    jobs=getattr(self, jobs_method, self.reduce_jobs),
+                    chunksize=getattr(
+                        self, chunksize_method, self.reduce_chunksize))
+
+        return [reducers.pop(i) for i in sorted(reducers.keys())]
 
     def _map_combine_partition(self, stream):
 
