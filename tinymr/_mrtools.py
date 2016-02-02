@@ -5,9 +5,7 @@ Helpers for MapReduce implementations.
 
 from collections import namedtuple
 
-import six
-
-from tinymr.tools import sorter
+from tinymr import tools
 
 
 def strip_sort_key(kv_stream):
@@ -42,7 +40,8 @@ def strip_sort_key(kv_stream):
         `(key, [data, data, ...])`
     """
 
-    kv_stream = six.iteritems(kv_stream) if isinstance(kv_stream, dict) else kv_stream
+    kv_stream = tools.popitems(kv_stream) \
+        if isinstance(kv_stream, dict) else kv_stream
     return ((k, tuple(i[-1] for i in v)) for k, v in kv_stream)
 
 
@@ -78,8 +77,10 @@ def sort_partitioned_values(kv_stream):
         `(key, [(sort, data), (sort, data), ...])`
     """
 
-    kv_stream = six.iteritems(kv_stream) if isinstance(kv_stream, dict) else kv_stream
-    return ((k, sorter(v, key=lambda x: x[0])) for k, v in kv_stream)
+    kv_stream = tools.popitems(kv_stream) \
+        if isinstance(kv_stream, dict) else kv_stream
+
+    return ((k, tools.sorter(v, key=lambda x: x[0])) for k, v in kv_stream)
 
 
 class ReduceJobConf(

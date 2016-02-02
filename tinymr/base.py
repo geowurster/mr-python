@@ -389,7 +389,7 @@ class BaseMapReduce(object):
             {key: [(sort, data), (sort, data), ...]}
         """
 
-        # Map, partition, and convert back to a `(key, [v, a, l, u, e, s])` stream
+        # Map, partition, and convert to a `(key, [v, a, l, u, e, s])` stream
         mapped = chain(*(self.mapper(item) for item in stream))
         map_partitioned = tools.partition(mapped)
         map_partitioned = six.iteritems(map_partitioned)
@@ -424,7 +424,8 @@ class BaseMapReduce(object):
         # If we don't have a combiner or if we're not sorting, then whatever
         # we got from the mapper is good enough
         if has_combiner and self.sort_combine:
-            combine_partitioned = _mrtools.sort_partitioned_values(combine_partitioned)
+            combine_partitioned = _mrtools.sort_partitioned_values(
+                combine_partitioned)
 
         return dict(combine_partitioned)
 

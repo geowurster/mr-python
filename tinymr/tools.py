@@ -356,7 +356,8 @@ def merge_partitions(*partitions, **kwargs):
     sort = kwargs.pop('sort', False)
     assert not kwargs, "Unrecognized kwargs: {}".format(kwargs)
 
-    partitions = (six.iteritems(ptn) if isinstance(ptn, dict) else ptn for ptn in partitions)
+    partitions = (
+        six.iteritems(p) if isinstance(p, dict) else p for p in partitions)
 
     out = defaultdict(list)
 
@@ -367,7 +368,8 @@ def merge_partitions(*partitions, **kwargs):
     else:
         for ptn in partitions:
             for key, values in ptn:
-                out[key] = tuple(heapq_merge(out[key], values, key=lambda x: x[0]))
+                out[key] = tuple(
+                    heapq_merge(out[key], values, key=lambda x: x[0]))
 
     return dict(out)
 
@@ -457,3 +459,36 @@ def count_lines(
             lines += getattr(f, 'raw', f).read().count(nl)  # No raw in PY2
 
         return lines
+
+
+def popitems(dictionary, sort=False, **kwargs):
+
+    """
+    Like `dict.popitem()` but produces an iterator over all key, value pairs.
+    Used to maintain a low memory footprint.  Can optionally produce keys in
+    sorted order.
+
+    Parameters
+    ----------
+    dictionary : dict
+        `dict()` to process.
+    sort : bool, optional
+        Produce keys in sorted order.
+    kwargs : **kwargs, optional
+        Keyword arguments for `sorter()` - only used if `sort=True`.
+
+    Yields
+    ------
+    tuple
+        (key, value)
+    """
+
+    if not sort:
+        while True:
+            try:
+                yield dictionary.popitem()
+            except KeyError:
+                raise StopIteration
+    else:
+        for k in sorter(dictionary.keys(), **kwargs):
+            yield k, dictionary.pop(k)

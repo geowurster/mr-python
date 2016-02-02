@@ -338,3 +338,26 @@ def test_count_lines_trailing_linesep(tmpdir):
         f.write('line2' + os.linesep)
         f.write('line3' + os.linesep)
     assert tools.count_lines(path) == 3
+
+
+def test_popitems():
+
+    d = {k: str(k) for k in range(10)}
+
+    for k, v in tools.popitems(d):
+        assert k < 10
+        assert v == str(k)
+
+    assert not d
+
+
+def test_popitems_sort():
+
+    d = {k: str(k) for k in reversed(range(10))}
+
+    for e, (k, v) in zip(range(10), tools.popitems(d, sort=True)):
+        assert e == k
+        assert v == str(k)
+        assert e < 10
+
+    assert not d
