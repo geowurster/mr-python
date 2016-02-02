@@ -5,6 +5,7 @@ Base classes.  Subclass away!
 
 import inspect
 from itertools import chain
+import logging
 
 import six
 
@@ -202,7 +203,8 @@ class BaseMapReduce(object):
         Sort the output from each `reducer()` before executing the next or
         before being passed to `output()`.
 
-        Define one property per reducer, so `reducer2()` would be `sort_reduce2`.
+        Define one property per reducer, so `reducer2()` would be
+        `sort_reduce2`.
 
         Returns
         -------
@@ -210,6 +212,16 @@ class BaseMapReduce(object):
         """
 
         return self.sort
+
+    @property
+    def logger(self):
+
+        """
+        Each MapReduce task gets its own logger with a name like
+        `tinymr-ClassName`.
+        """
+
+        return logging.getLogger('tinymr-{}'.format(self.__class__.__name__))
 
     def close(self):
 
