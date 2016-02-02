@@ -379,45 +379,19 @@ def count_lines(
         encoding='utf-8'):
 
     """
-    Quickly count the number of lines in a text file.  Useful for computing
-    optimal chunksize.
+    Quickly count the number of lines in a text file.  Useful for computing an
+    optimal `chunksize`.
 
     Comparable to `$ wc -l` for files larger than ``~100 MB``, and significantly
     faster as the file gets smaller (ignoring Python interpreter startup and
-    imports).
-
-    Benchmarks in seconds from Python's ``timeit`` module on a ``2.8 GHz i7``
-    with ``8 GB`` of RAM and SSD.  Default settings used for `count_lines()`.
-
-        ``4 KB`` file with ``29`` lines:
-
-            $ wc -l         0.00303
-            $ sed -n '$='   0.00295
-            count_lines()   0.00002
-
-        ``6.2 MB`` file with ``128457`` lines:
-
-            $ wc -l         0.0124
-            $ sed -n '$='   0.0608
-            count_lines()   0.00776
-
-        ``309 MB`` file with ``6422850`` lines:
-
-            $ wc -l         0.394
-            $ sed -n '$='   ~3
-            count_lines()   0.395
-
-        ``1.2 GB`` file with ``25691400`` lines:
-
-            $ wc -l         1.58
-            $ sed -n '$='   ~12
-            count_lines()   1.56
+    imports).  For reference just looping over all the lines in a 1.2 GB file
+    takes ~6 or 7 seconds, but `count_lines()` takes ~1.5.
 
     For reference just looping over all the lines in the ``1.2 GB`` file takes
     ``~6 to 7 sec``.
 
     Speed is achieved by reading the file in blocks and counting the occurrence
-    of `linesep`.  For `linesep` strings that are larger than ``1`` byte we
+    of `linesep`.  For `linesep` strings that are larger than 1 byte we
     check to make sure a `linesep` was not split across blocks.
 
     Scott Persinger on StackOverflow gets credit for the core logic.
@@ -439,15 +413,21 @@ def count_lines(
     int
     """
 
-    nl = bytes(linesep.encode(encoding))
+    nl = bytearray(linesep.encode(encoding))
     size = os.stat(path).st_size
 
+    if len(nl) > 2:
+        raise ValueError(
+            "Cannot handle linesep characters larger than 2 bytes.")
+
     # File is small enough to just process in one go
-    if size < buffer:
+    elif size < buffer:
         with open(path, 'rb', buffering=buffer) as f:
-            return f.raw.read(buffer).count(nl)
+            return getattr(f, 'raw', f).read(buffer).count(nl)  # No raw in PY2
 
     # Process in chunks
+    # Number of chunks is pre-determined so that the last chunk can be
+    # read into a fresh array to avoid double-counting
     else:
 
         buff = bytearray(buffer)
@@ -458,38 +438,22 @@ def count_lines(
 
             # Optimize the loops a bit in case we are working with a REALLY
             # big file
-            readinto = f.raw.readinto
+            readinto = getattr(f, 'raw', f).readinto  # no raw in PY2
             count = buff.count
 
-            if len(nl) == 1:
-                for i in six.moves.xrange(blocks):
-                    readinto(buff)
-                    lines += count(nl)
+            for i in six.moves.xrange(blocks):
+                readinto(buff)
+                lines += count(nl)
 
-                # Last bit of data should be smaller than the
-                # allotted buffer.
-                # We can't read the data directly into the buffer
-                # because it would not complete overwrite the old data,
-                # so we could potentially double count some values
-
-            # linesep is something like \r\n, which means it could be split
-            # across blocks.  Check for this condition after processing each
-            # block
-            elif len(nl) == 2:
-                for i in six.moves.xrange(blocks):
-                    readinto(buff)
-                    lines += count(nl)
-                    if buff[-1] == nl[0]:
-                        lines += 1
-
-            else:
-                raise ValueError(
-                    "Cannot handle linesep characters larger than 2 bytes.")
+                # linesep is something like \r\n, which means it could be split
+                # across blocks, so we need an additional check
+                if buff[-1] == nl[0]:
+                    lines += 1
 
             # The last bit of data in the file is smaller than a block
             # We can't just read this into the constant buffer because
             # it the remaining bytes would still be populated by the
             # previous block, which could produce duplicate counts.
-            lines += f.raw.read().count(nl)
+            lines += getattr(f, 'raw', f).read().count(nl)  # No raw in PY2
 
         return lines

@@ -52,3 +52,20 @@ def mr_wordcount_memory_no_sort():
             return {k: tuple(v)[0] for k, v in pairs}
 
     return WordCount
+
+
+@pytest.fixture(scope='function')
+def linecount_file(tmpdir):
+
+    """
+    Return a function that copies the license and writes it to a tempfile.
+    Can optionally change the `linesep` character.
+    """
+
+    def _linecount_file(linesep=os.linesep):
+        path = str(tmpdir.mkdir('test').join('count-lines.txt'))
+        with open('LICENSE.txt') as src, open(path, 'w') as dst:
+            for line in src:
+                dst.write(line.strip() + linesep)
+        return path
+    return _linecount_file
