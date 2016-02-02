@@ -82,7 +82,8 @@ def sort_partitioned_values(kv_stream):
     return ((k, sorter(v, key=lambda x: x[0])) for k, v in kv_stream)
 
 
-class ReduceJob(namedtuple('ReduceJob', ['reducer', 'sort', 'jobs', 'chunksize'])):
+class ReduceJobConf(
+        namedtuple('ReduceJob', ['reducer', 'sort', 'jobs', 'chunksize'])):
 
     """
     Describes a reduce job.  Makes keeping track of multiple reducers easier.
