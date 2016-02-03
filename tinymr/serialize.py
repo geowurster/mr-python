@@ -4,9 +4,11 @@ Serialization and de-serialization keys.
 
 
 try:
-    import cPickle as _pickle
+    import cPickle as pickle
 except ImportError:
-    import pickle as _pickle
+    import pickle
+
+from tinymr import tools
 
 
 def str2type(string):
@@ -46,13 +48,15 @@ def str2type(string):
             return True
         elif string_lower == 'false':
             return False
+        elif string_lower == 'orderablenone':
+            return tools.OrderableNone
 
         # It's really just a string
         else:
             return string
 
 
-def pickle(stream, *args, **kwargs):
+def dump_pickle(stream, *args, **kwargs):
 
     """
     Pickle a stream of data one item at a time.  Primarily used to serialize
@@ -69,14 +73,14 @@ def pickle(stream, *args, **kwargs):
 
     Yields
     ------
-    bytes
+    str
     """
 
     for key in stream:
-        yield _pickle.dumps(key, *args, **kwargs)
+        yield pickle.dumps(key, *args, **kwargs)
 
 
-def unpickle(stream):
+def load_pickle(stream):
 
     """
     Unpickle a file or stream of data.  Primarily used to de-serialize keys.
@@ -92,8 +96,8 @@ def unpickle(stream):
     object
     """
 
-    if isinstance(stream, file):
-        up = _pickle.Unpickler(stream)
+    if hasattr(stream, 'read') and 'b' in getattr(stream, 'mode', ''):
+        up = pickle.Unpickler(stream)
         while True:
             try:
                 yield up.load()
@@ -101,21 +105,19 @@ def unpickle(stream):
                 break
     else:
         for key in stream:
-            yield _pickle.loads(key)
+            yield pickle.loads(key)
 
 
-def text(stream, delimiter='\t', serializer=str):
+def dump_text(stream, delimiter='\t', serializer=str):
 
     """
     Convert keys to delimited text.
 
-    Example:
-
-        >>> from tinymr.serialize import text
+        >>> from tinymr.serialize import dump_text
         >>> keys = [
         ...     ('partition', 'sort', 'data')
         ...     (1, 1.23, None)]
-        >>> print(list(text(keys)))
+        >>> print(list(dump_ext(keys)))
         [
             'partition\tsort\tdata\t',
             '1\t1.23\tNone'
@@ -144,9 +146,24 @@ def load_text(stream, delimiter='\t', deserializer=str2type):
     """
     Parse delimited text to a stream of key tuples.
 
+        >>> import os
+        >>> from tinymr.serialize import load_text
+        >>> text = os.linesep.join([
+        ...     'partition\tsort\tdata\t',
+        ...     '1\t1.23\tNone'])
+        >>> keys = [
+        ...     ('partition', 'sort', 'data')
+        ...     (1, 1.23, None)]
+        >>> print(list(load_ext(text)))
+        [
+            ('partition', 'sort', 'data',
+            ('1', '1.23', None)
+        ]
+
     Parameters
     ----------
     stream
     """
 
-    pass
+    for line in stream:
+        yield tuple((deserializer(k) for k in line.strip().split(delimiter)))

@@ -329,6 +329,14 @@ class _OrderableNone(Orderable):
 
         super(_OrderableNone, self).__init__(None, eq=None)
 
+    def __str__(self):
+
+        """
+        For serialization purposes we produce the name of the class as a string.
+        """
+
+        return 'OrderableNone'
+
 
 # Instantiate so we can make it more None-like
 OrderableNone = _OrderableNone()
