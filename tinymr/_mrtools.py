@@ -5,7 +5,52 @@ Helpers for MapReduce implementations.
 
 from collections import namedtuple
 
+from tinymr import errors
 from tinymr import tools
+
+
+def sorter(*args, **kwargs):
+
+    """
+    Wrapper for the builtin `sorted()` that produces a better error when
+    unorderable types are encountered.
+
+    Instead of:
+
+        >>> sorted(['1', 1])
+        Traceback (most recent call last):
+          File "<stdin>", line 1, in <module>
+        TypeError: unorderable types: int() < str()
+
+    we get a `tinymr.errors.UnorderableKeys` exception.
+
+    Python 2 is much more forgiving of unorderable types so the example above
+    does not raise an exception.
+
+    Parameters
+    ----------
+    *args : *args
+        Positional arguments for `sorted()`.
+    **kwargs : **kwargs
+        Keyword arguments for `sorted()`.
+
+    Raises
+    ------
+    tinymr.errors.UnorderableKeys
+
+    Returns
+    -------
+    list
+        Output from `sorted()`.
+    """
+
+    try:
+        return sorted(*args, **kwargs)
+    except TypeError as e:
+        if 'unorderable' in str(e):
+            raise errors._UnorderableKeys
+        else:
+            raise e
 
 
 def strip_sort_key(kv_stream):
@@ -80,7 +125,7 @@ def sort_partitioned_values(kv_stream):
     kv_stream = tools.popitems(kv_stream) \
         if isinstance(kv_stream, dict) else kv_stream
 
-    return ((k, tools.sorter(v, key=lambda x: x[0])) for k, v in kv_stream)
+    return ((k, sorter(v, key=lambda x: x[0])) for k, v in kv_stream)
 
 
 class ReduceJobConf(

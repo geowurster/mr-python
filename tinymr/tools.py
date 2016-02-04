@@ -3,10 +3,14 @@ Tools for building MapReduce implementations.
 """
 
 
+from __future__ import absolute_import
+
+
 from collections import defaultdict
 import itertools as it
 import io
 import multiprocessing as mp
+import operator
 import os
 
 import six
@@ -171,50 +175,6 @@ def mapkey(key, values):
     return zip(it.repeat(key), values)
 
 
-def sorter(*args, **kwargs):
-
-    """
-    Wrapper for the builtin `sorted()` that produces a better error when
-    unorderable types are encountered.
-
-    Instead of:
-
-        >>> sorted(['1', 1])
-        Traceback (most recent call last):
-          File "<stdin>", line 1, in <module>
-        TypeError: unorderable types: int() < str()
-
-    we get a `tinymr.errors.UnorderableKeys` exception.
-
-    Python 2 is much more forgiving of unorderable types so the example above
-    does not raise an exception.
-
-    Parameters
-    ----------
-    *args : *args
-        Positional arguments for `sorted()`.
-    **kwargs : **kwargs
-        Keyword arguments for `sorted()`.
-
-    Raises
-    ------
-    tinymr.errors.UnorderableKeys
-
-    Returns
-    -------
-    list
-        Output from `sorted()`.
-    """
-
-    try:
-        return sorted(*args, **kwargs)
-    except TypeError as e:
-        if 'unorderable' in str(e):
-            raise errors._UnorderableKeys
-        else:
-            raise e
-
-
 def partition(key_values):
 
     """
@@ -253,7 +213,8 @@ def partition(key_values):
 class Orderable(object):
 
     """
-    Make any object orderable.
+    Wraps an object to make it orderable.  The `make_orderable()` function is
+    intended to be the primary interface.
     """
 
     __slots__ = ['_obj', '_lt', '_le', '_gt', '_ge', '_eq']
@@ -275,9 +236,6 @@ class Orderable(object):
             Set `__gt__()` evaluation.
         ge : bool, optional
             Set `__ge__()` evaluation.
-        eq : bool or None, optional
-            Set `__eq__()` evaluation.  Set to `None` to enable a real
-            equality check.
         """
 
         self._obj = obj
@@ -309,10 +267,36 @@ class Orderable(object):
         return self._ge
 
     def __eq__(self, other):
-        if self._eq is None:
-            return isinstance(other, self.__class__) and other.obj == self.obj
+
+        if isinstance(other, Orderable):
+            return operator.eq(self.obj, other.obj)
         else:
-            return self._eq
+            return operator.eq(self.obj, other)
+
+    if six.PY2:
+        def __getstate__(self):
+            return {k: getattr(self, k) for k in self.__slots__}
+
+        def __setstate__(self, state):
+            for k, v in six.iteritems(state):
+                setattr(self, k, v)
+
+
+def make_orderable(*args, **kwargs):
+
+    """
+    Make any object orderable.
+
+    Parameters
+    ----------
+    See `Orderable.__init__()`.
+
+    Returns
+    -------
+    Orderable
+    """
+
+    return Orderable(*args, **kwargs)
 
 
 class _OrderableNone(Orderable):
@@ -327,7 +311,13 @@ class _OrderableNone(Orderable):
         Use the instantiated `OrderableNone` variable.
         """
 
-        super(_OrderableNone, self).__init__(None, eq=None)
+        super(_OrderableNone, self).__init__(None)
+
+    def __eq__(self, other):
+        if isinstance(other, OrderableNone):
+            return True
+        else:
+            return False
 
     def __str__(self):
 
@@ -498,5 +488,5 @@ def popitems(dictionary, sort=False, **kwargs):
             except KeyError:
                 raise StopIteration
     else:
-        for k in sorter(dictionary.keys(), **kwargs):
+        for k in sorted(dictionary.keys(), **kwargs):
             yield k, dictionary.pop(k)
