@@ -14,6 +14,100 @@ from tinymr import errors
 from tinymr import tools
 
 
+class BaseSerializer(object):
+
+    """
+    Base class for creating data serialization formats.
+    """
+
+    def __repr__(self):
+        return "{}()".format(self.__class__.__name__)
+
+    @property
+    def _read_mode(self):
+
+        """
+        I/O mode to use when reading data from a file on disk.
+        """
+
+        return 'r'
+
+    @property
+    def _write_mode(self):
+
+        """
+        I/O mode to use when writing data to disk.
+        """
+
+        return 'w'
+
+    @property
+    def _loader(self):
+
+        """
+        Function for deserializing a stream of data.
+        """
+
+        raise NotImplementedError
+
+    @property
+    def _dumper(self):
+
+        """
+        Function for serializing a stream of data.
+        """
+
+        raise NotImplementedError
+
+    def _readfile(self, path, mode=None, **kwargs):
+
+        """
+        De-serialize data from disk.
+
+        Parameters
+        ----------
+        path : str
+            Read from this file.
+        mode : str or None, optional
+            Open the file with this mode.  Defaults to `_read_mode`.
+        kwargs : **kwargs, optional
+            Additional arguments for `_loader()`.
+
+        Yields
+        ------
+        object
+        """
+
+        mode = mode or self._read_mode
+        with open(path, mode) as f:
+            for item in self._loader(f, **kwargs):
+                yield item
+
+    def _writefile(self, stream, path, mode=None, **kwargs):
+
+        """
+        Serialize data to disk.
+
+        Parameters
+        ----------
+        stream : iter
+            Data to write to disk.
+        path : str
+            Write data to this file.
+        mode : str or None, optional
+            Open the file with this mode.  Defaults to `_write_mode`.
+        kwargs : **kwargs, optional
+            Included as a method to pass in additional arguments to something
+            in the write chain.
+
+        Returns
+        -------
+        path
+        """
+
+        raise NotImplementedError
+
+
 class BaseMapReduce(object):
 
     """

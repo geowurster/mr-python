@@ -1,5 +1,8 @@
 """
 Serialization and de-serialization keys.
+
+This module is pretty rough, but the objects are primarily used internally.
+Either way, don't get to attached.
 """
 
 
@@ -8,6 +11,10 @@ try:
 except ImportError:
     import pickle
 
+import json
+import os
+
+from tinymr import base
 from tinymr import tools
 
 
@@ -80,7 +87,7 @@ def dump_pickle(stream, *args, **kwargs):
         yield pickle.dumps(key, *args, **kwargs)
 
 
-def load_pickle(stream):
+def load_pickle(stream, **kwargs):
 
     """
     Unpickle a file or stream of data.  Primarily used to de-serialize keys.
@@ -90,6 +97,8 @@ def load_pickle(stream):
     stream : file or iter
         If a `file` is given it is un-pickled with `pickle.Unpickler()`.  If
         an iterator is given each item is passed through `pickle.loads()`.
+    kwargs : **kwargs, optional
+        Not used - included to homogenize the serialization API.
 
     Yields
     ------
@@ -167,3 +176,140 @@ def load_text(stream, delimiter='\t', deserializer=str2type):
 
     for line in stream:
         yield tuple((deserializer(k) for k in line.strip().split(delimiter)))
+
+
+def load_json(stream, json_lib=json, **kwargs):
+
+    """
+    Load a series of JSON encoded strings.
+
+    Parameters
+    ----------
+    stream : iter
+        Strings to load.
+    json_lib : module, optional
+        JSON library to use for loading.  Must match the builtin `json`
+        module's API.
+    kwargs : **kwargs, optional
+        Arguments for `json.loads()`.
+
+    Yields
+    ------
+    dict or list
+    """
+
+    for item in stream:
+        yield json_lib.loads(item, **kwargs)
+
+
+def dump_json(stream, json_lib=json, **kwargs):
+
+    """
+    Dump objects to JSON.
+
+    Parameters
+    ----------
+    stream : iter
+        JSON encodable objects.
+    json_lib : module, optional
+        JSON library to use for loading.  Must match the builtin `json`
+        module's API.
+    kwargs : **kwargs, optional
+        Arguments for `json.dumps()`.
+
+    Yields
+    ------
+    str
+    """
+
+    for item in stream:
+        yield json_lib.dumps(item, **kwargs)
+
+
+class Pickle(base.BaseSerializer):
+
+    """
+    Serializer for reading/writing data with `pickle`.  Mostly for internal
+    use until the API stabilizes.
+    """
+
+    @property
+    def _read_mode(self):
+        return 'rb'
+
+    @property
+    def _write_mode(self):
+        return 'wb'
+
+    @property
+    def _loader(self):
+        return load_pickle
+
+    @property
+    def _dumper(self):
+        return dump_pickle
+
+    def _writefile(self, stream, path, mode=None, **kwargs):
+
+        """
+        Write data to disk with `pickle`.
+        """
+
+        mode = mode or self._write_mode
+        with open(path, mode) as f:
+            for item in self._dumper(stream):
+                f.write(item)
+
+        return path
+
+
+class Text(base.BaseSerializer):
+
+    """
+    Serializer for reading/writing delimited text.  Mostly for internal use
+    until the API stabilizes.
+    """
+
+    @property
+    def _loader(self):
+        return load_text
+
+    @property
+    def _dumper(self):
+        return dump_text
+
+    def _writefile(self, stream, path, mode=None, **kwargs):
+
+        """
+        Write a data stream to disk as delimited text.
+        """
+
+        mode = mode or self._write_mode
+        with open(path, mode) as f:
+            for item in self._dumper(stream, **kwargs):
+                f.write(item + os.linesep)
+
+        return path
+
+
+class NewlineJSON(base.BaseSerializer):
+
+    @property
+    def _dumper(self):
+        return dump_json
+
+    @property
+    def _loader(self):
+        return load_json
+
+    def _readfile(self, path, mode=None, **kwargs):
+        mode = mode or self._read_mode
+        with open(path, mode) as f:
+            for item in self._loader(f, **kwargs):
+                yield item
+
+    def _writefile(self, stream, path, mode=None, **kwargs):
+        mode = mode or self._write_mode
+        with open(path, mode) as f:
+            for item in self._dumper(stream, **kwargs):
+                f.write(item + os.linesep)
