@@ -416,6 +416,9 @@ class BaseMapReduce(object):
             combine_partitioned = six.iteritems(combine_partitioned)
 
         # If we don't have a combiner then we don't need to partition either
+
+
+
         # because we're already dealing with partitioned output from the
         # map phase
         else:
@@ -455,4 +458,4 @@ class BaseMapReduce(object):
         tuple
         """
 
-        return ((k, v) for k, v in tools.sorter(kv_stream, key=lambda x: x[0]))
+        return ((k, v) for k, v in _mrtools.sorter(kv_stream, key=lambda x: x[0]))
