@@ -314,7 +314,7 @@ class _OrderableNone(Orderable):
         super(_OrderableNone, self).__init__(None)
 
     def __eq__(self, other):
-        if isinstance(other, OrderableNone):
+        if isinstance(other, _OrderableNone):
             return True
         else:
             return False
