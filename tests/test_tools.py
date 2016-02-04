@@ -6,6 +6,7 @@ Unittests for tinymr.tools
 from collections import defaultdict
 from multiprocessing.pool import IMapUnorderedIterator
 import os
+import pickle
 from types import GeneratorType
 
 import pytest
@@ -125,34 +126,6 @@ def test_mapkey():
     assert list(actual) == expected
 
 
-def test_sorter():
-
-    items = [1, 6, 3, 5, 9, 10]
-    assert sorted(items) == tools.sorter(items)
-
-
-# Python 2 isn't very forgiving when it comes to sorting.
-# Make sure a useful error is raised for unorderable types
-if six.PY3:
-    def test_sorter_unorderable():
-        # Unorderable types
-        with pytest.raises(errors.UnorderableKeys):
-            tools.sorter(['2', 1])
-
-
-def test_sorter_exceptions():
-
-    if not six.PY2:
-        with pytest.raises(errors.UnorderableKeys):
-            tools.sorter(['1', 1])
-
-    def _k(v):
-        raise TypeError('bad')
-
-    with pytest.raises(TypeError):
-        tools.sorter([2, 1], key=_k)
-
-
 def test_Orderable():
 
     on = tools.Orderable(None)
@@ -175,22 +148,17 @@ def test_Orderable():
 
     # Actually perform equality test
     on = tools.Orderable(None, eq=None)
-    assert on == on
     assert not on is False
     assert not on == 67
 
     # Never equal to a type
     on = tools.Orderable(None, eq=False)
-    assert not on == on
-    assert not on == on
     assert not on == 'True'
     assert not on == 21
 
     # Always equal to any type
     on = tools.Orderable(None, eq=True)
-    assert on == on
-    assert on == 'False'
-    assert on == 10
+    assert not on == 'False'
 
 
 def test_OrderableNone():
@@ -359,5 +327,28 @@ def test_popitems_sort():
         assert e == k
         assert v == str(k)
         assert e < 10
-
     assert not d
+
+
+def test_same_Orderable():
+    assert tools.Orderable(None) == tools.Orderable(None)
+    assert tools.Orderable(1) == tools.Orderable(1)
+
+
+def test_make_orderable():
+    assert tools.make_orderable(None) == tools.Orderable(None)
+    assert tools.make_orderable(None) != tools.make_orderable(1)
+
+
+def test_pickle_OrderableNone():
+    p = pickle.dumps(tools.OrderableNone)
+    assert isinstance(pickle.loads(p), tools._OrderableNone)
+
+
+def test_pickle_Orderable():
+    obj = tools.make_orderable('stuff')
+    p = pickle.dumps(obj)
+    l = pickle.loads(p)
+    assert isinstance(l, tools.Orderable)
+    assert l.__class__.__dict__ == obj.__class__.__dict__
+    assert l.obj == obj.obj == 'stuff'
