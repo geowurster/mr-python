@@ -17,7 +17,6 @@ import six
 from six.moves import zip
 
 from tinymr._backport_heapq import merge as heapq_merge
-from tinymr import errors
 
 
 # Make instance methods pickle-able in Python 2

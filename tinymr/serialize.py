@@ -387,40 +387,45 @@ class Text(base.BaseSerializer):
     def open(self, path, mode='r', **kwargs):
         if mode == 'r':
             cls = TextReader
-        else:
+        elif mode == 'w':
             cls = TextWriter
+        else:
+            raise ValueError("Mode {} is not supported".format(mode))
 
         f = open(path, mode=mode, **kwargs)
 
         return cls(f, **self._kwargs)
 
 
-class NewlineJSON(base.BaseSerializer):
-
-    """
-    Read and write newline delimited JSON with the `newlinejson` module.
-    """
-
-    def __init__(self, **kwargs):
-
-        """
-        Parameters
-        ----------
-        kwargs : **kwargs
-            Keyword arguments for `newlinejson.open()`.
-        """
-
-        self._kwargs = kwargs
-
-    def open(self, f, mode='r', **kwargs):
-
-        """
-        See `newlinejson.open()`.
-
-        The `kwargs` here override the arguments from `__init__`.
-        """
-
-        import newlinejson as nlj
-        kw = copy.deepcopy(self._kwargs)
-        kw.update(kwargs)
-        return nlj.open(f, mode=mode, **kw)
+# class NewlineJSON(base.BaseSerializer):
+#
+#     """
+#     Read and write newline delimited JSON with the `newlinejson` module.
+#     """
+#
+#     def __init__(self, **kwargs):
+#
+#         """
+#         Parameters
+#         ----------
+#         kwargs : **kwargs
+#             Keyword arguments for `newlinejson.open()`.
+#         """
+#
+#         self._kwargs = kwargs
+#
+    # def open(self, f, mode='r', **kwargs):
+    #
+    #     """
+    #     See `newlinejson.open()`.
+    #
+    #     The `kwargs` here override the arguments from `__init__`.
+    #     """
+    #
+    #     if mode not in ('r', 'w'):
+    #         raise ValueError("Mode {} is not supported".format(mode))
+    #
+    #     import newlinejson as nlj
+    #     kw = copy.deepcopy(self._kwargs)
+    #     kw.update(kwargs)
+    #     return nlj.open(f, mode=mode, **kw)

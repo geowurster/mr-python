@@ -157,6 +157,12 @@ def test_serialization_classes(cls, tmpdir):
         with pytest.raises(ValueError):
             slz.open(path, 'a')
 
+    with slz.open(path) as f:
+        assert next(f) == data[0]
+
+    with pytest.raises(ValueError):
+        slz.open(None, mode='a')
+
 
 # def test_Text(tmpdir):
 #

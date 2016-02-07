@@ -40,7 +40,7 @@ def delete_files(*paths):
 
 
 @contextmanager
-def batch_open(*paths, mode='r', opener=open, **kwargs):
+def batch_open(*paths, **kwargs):
 
     """
     Like `open()` but operates on multiple file paths.
@@ -61,6 +61,9 @@ def batch_open(*paths, mode='r', opener=open, **kwargs):
     tuple
         File handles.
     """
+
+    mode = kwargs.pop('mode', 'r')
+    opener = kwargs.pop('opener', open)
 
     handles = []
     try:
@@ -84,7 +87,8 @@ def sort_into(values, f, **kwargs):
     values : iter
         Data to sort.
     f : file
-        Open file-like object supporting `f.write()`.
+        Open file-like object supporting `f.write()`.  Does not write newline
+        characters, so a serializer from `tinymr.serialize` is best.
     kwargs : **kwargs, optional
         Keyword arguments for `sorted()`.
     """
@@ -157,11 +161,11 @@ def sort_into_files(
 
 
 def _mp_sort_files(kwargs):
-    
+
     """
-    `multiprocessing` function for use with `sort_files()`
+    `multiprocessing` function for use with `sort_files_into_files()`
     """
-    
+
     infile = kwargs['infile']
     reader = kwargs['reader']
     chunksize = kwargs['chunksize']
@@ -171,12 +175,7 @@ def _mp_sort_files(kwargs):
         return sort_into_files(src, chunksize=chunksize, jobs=1, **kwargs)
 
 
-def sort_files_into_files(
-        *paths,
-        chunksize=CHUNKSIZE,
-        jobs=1,
-        reader=serialize.Pickle(),
-        **kwargs):
+def sort_files_into_files(*paths, **kwargs):
 
     """
     Sort big files on disk into a bunch of tiny files on disk.
@@ -203,6 +202,10 @@ def sort_files_into_files(
     tuple
         Tempfile paths.
     """
+
+    chunksize = kwargs.pop('chunksize', CHUNKSIZE)
+    jobs = kwargs.pop('jobs', 1)
+    reader = kwargs.pop('reader', serialize.Pickle())
 
     logger.debug(
         "sort_files_into_files() - sorting %s files with chunksize=%s, "
