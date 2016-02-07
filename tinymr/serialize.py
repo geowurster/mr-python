@@ -10,7 +10,8 @@ try:
     import cPickle as pickle
 except ImportError:
     import pickle
-
+import copy
+import functools
 import json
 import os
 
@@ -226,90 +227,200 @@ def dump_json(stream, json_lib=json, **kwargs):
         yield json_lib.dumps(item, **kwargs)
 
 
+class PickleReader(object):
+
+    """
+    A more Pythonic file-like interface to `pickle.Unpickler()`.
+
+    Limited to:
+
+        >>> with open('data.pickle') as f, PickleReader(f) as reader:
+        ...     for obj in reader:
+        ...         # Do stuff
+    """
+
+    def __init__(self, f, **kwargs):
+        self._f = f
+        self._unpickler = pickle.Unpickler(self._f, **kwargs)
+        self._iterator = self._iter_reader()
+
+    def __iter__(self):
+        return self._iterator
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
+
+    def __next__(self):
+        return next(self._iterator)
+
+    next = __next__
+
+    def close(self):
+        return self._f.close()
+
+    def _iter_reader(self):
+        while True:
+            try:
+                yield self._unpickler.load()
+            except EOFError:
+                raise StopIteration
+
+
+class PickleWriter(object):
+
+    """
+    A file-like interface for `pickle.Pickler()`.  Intended for use with the
+    `Pickle()` serializer.  Primarily exists to give `pickle.Pickler()` a
+    `write()` method.
+
+        >>> with open('data.pickle', 'wb') as f, PickleWriter(f) as writer:
+        ...     for obj in stream:
+        ...         writer.write(obj)
+    """
+
+    def __init__(self, f, **kwargs):
+        self._f = f
+        self._pickler = pickle.Pickler(self._f, **kwargs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        self._f.close()
+
+    def write(self, obj):
+        self._pickler.dump(obj)
+
+
 class Pickle(base.BaseSerializer):
 
-    """
-    Serializer for reading/writing data with `pickle`.  Mostly for internal
-    use until the API stabilizes.
-    """
+    def __init__(self, **kwargs):
+        self._kwargs = kwargs
 
-    @property
-    def _read_mode(self):
-        return 'rb'
+    def open(self, path, mode='r', **kwargs):
+        if mode == 'r':
+            mode = 'rb'
+            cls = PickleReader
+        elif mode == 'w':
+            mode = 'wb'
+            cls = PickleWriter
+        else:
+            raise ValueError("Mode {} is not supported".format(mode))
 
-    @property
-    def _write_mode(self):
-        return 'wb'
+        f = open(path, mode=mode, **kwargs)
 
-    @property
-    def _loader(self):
-        return load_pickle
+        return cls(f, **self._kwargs)
 
-    @property
-    def _dumper(self):
-        return dump_pickle
 
-    def _writefile(self, stream, path, mode=None, **kwargs):
+class TextReader(object):
 
-        """
-        Write data to disk with `pickle`.
-        """
+    def __init__(self, f, **kwargs):
+        self._f = f
+        self._iterator = load_text(self._f, **kwargs)
 
-        mode = mode or self._write_mode
-        with open(path, mode) as f:
-            for item in self._dumper(stream):
-                f.write(item)
+    def __enter__(self):
+        return self
 
-        return path
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
+
+    def __iter__(self):
+        return self._iterator
+
+    def __next__(self):
+        return next(self._iterator)
+
+    next = __next__
+
+    def close(self):
+        return self._f.close()
+
+
+class TextWriter(object):
+
+    def __init__(self, f, **kwargs):
+
+        self._f = f
+        self._kwargs = kwargs
+        self._serialize = functools.partial(dump_text, **kwargs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        return self._f.close()
+
+    def write(self, obj):
+        self._f.write(next(self._serialize([obj])) + os.linesep)
 
 
 class Text(base.BaseSerializer):
 
     """
-    Serializer for reading/writing delimited text.  Mostly for internal use
-    until the API stabilizes.
+    Read and write delimited text.
     """
 
-    @property
-    def _loader(self):
-        return load_text
+    def __init__(self, **kwargs):
+        self._kwargs = kwargs
 
-    @property
-    def _dumper(self):
-        return dump_text
+    def open(self, path, mode='r', **kwargs):
+        if mode == 'r':
+            cls = TextReader
+        else:
+            cls = TextWriter
 
-    def _writefile(self, stream, path, mode=None, **kwargs):
+        f = open(path, mode=mode, **kwargs)
 
-        """
-        Write a data stream to disk as delimited text.
-        """
-
-        mode = mode or self._write_mode
-        with open(path, mode) as f:
-            for item in self._dumper(stream, **kwargs):
-                f.write(item + os.linesep)
-
-        return path
+        return cls(f, **self._kwargs)
 
 
 class NewlineJSON(base.BaseSerializer):
 
-    @property
-    def _dumper(self):
-        return dump_json
+    """
+    Read and write newline delimited JSON with the `newlinejson` module.
+    """
 
-    @property
-    def _loader(self):
-        return load_json
+    def __init__(self, **kwargs):
 
-    def _readfile(self, path, mode=None, **kwargs):
-        mode = mode or self._read_mode
-        with open(path, mode) as f:
-            for item in self._loader(f, **kwargs):
-                yield item
+        """
+        Parameters
+        ----------
+        kwargs : **kwargs
+            Keyword arguments for `newlinejson.open()`.
+        """
 
-    def _writefile(self, stream, path, mode=None, **kwargs):
-        mode = mode or self._write_mode
-        with open(path, mode) as f:
-            for item in self._dumper(stream, **kwargs):
-                f.write(item + os.linesep)
+        self._kwargs = kwargs
+
+    def open(self, f, mode='r', **kwargs):
+
+        """
+        See `newlinejson.open()`.
+
+        The `kwargs` here override the arguments from `__init__`.
+        """
+
+        import newlinejson as nlj
+        kw = copy.deepcopy(self._kwargs)
+        kw.update(kwargs)
+        return nlj.open(f, mode=mode, **kw)

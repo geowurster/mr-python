@@ -87,6 +87,8 @@ class runner(object):
     Wrapped in a class to make the context syntax optional.
     """
 
+    nproc = mp.cpu_count()
+
     def __init__(self, func, iterable, jobs):
 
         """
@@ -273,6 +275,7 @@ class Orderable(object):
         else:
             return operator.eq(self.obj, other)
 
+    # Pickling with __slots__ in Python 2
     if six.PY2:
         def __getstate__(self):
             return {k: getattr(self, k) for k in self.__slots__}

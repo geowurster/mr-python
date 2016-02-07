@@ -78,6 +78,12 @@ def test_reduce_job_confs():
     assert mr._reduce_job_confs == [rj, rj2, rj10]
 
 
+def test_BaseSerializer_exceptions():
+
+    slz = base.BaseSerializer()
+    with pytest.raises(NotImplementedError):
+        slz.open(None, None)
+
 
 # def test_context_manager():
 #

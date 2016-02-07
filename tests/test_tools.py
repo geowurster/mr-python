@@ -165,6 +165,7 @@ def test_OrderableNone():
 
     assert isinstance(tools.OrderableNone, tools._OrderableNone)
     assert tools.OrderableNone.obj is None
+    assert tools.OrderableNone != 1
 
 
 def test_partition():

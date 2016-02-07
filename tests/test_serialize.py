@@ -3,10 +3,10 @@ Unittests for tinymr.serialize
 """
 
 
-import pickle
 import os
+import pickle
 
-import six
+import pytest
 
 from tinymr import serialize
 from tinymr import tools
@@ -105,12 +105,76 @@ def test_from_Pickler(tmpdir):
         (3, tools.OrderableNone)]
 
     with open(path, 'wb') as f:
-        p = pickle.Pickler(f)
-        for item in data:
-            p.dump(item)
+        for item in serialize.dump_pickle(data):
+            f.write(item)
 
     with open(path, 'rb') as f:
         loaded = list(serialize.load_pickle(f))
         assert len(loaded) > 1
         for e, a in zip(data, loaded):
             assert e == a
+
+
+def test_dump_load_json():
+
+    data = [
+        {'key1': 'value1', 'key2': 'value2'},
+        {'key3': 'value3', 'key4': 'value4'}]
+
+    actual = serialize.dump_json(data)
+    actual = serialize.load_json(actual)
+
+    for e, a in zip(data, actual):
+        assert e == a
+
+
+@pytest.mark.parametrize('cls', [serialize.Pickle, serialize.Text])
+def test_serialization_classes(cls, tmpdir):
+
+    path = str(tmpdir.mkdir('test_serialization_classes').join('data'))
+
+    data = [
+        (1, 2),
+        (3, 4)]
+
+    slz = cls()
+
+    assert isinstance(pickle.loads(pickle.dumps(slz)), type(slz))
+    assert repr(slz).startswith(slz.__class__.__name__)
+
+    with slz.open(path, 'w') as dst:
+        for obj in data:
+            dst.write(obj)
+    assert dst._f.closed
+
+    with slz.open(path) as src:
+        for e, a in zip(data, src):
+            assert e == a
+
+    assert dst._f.closed
+
+    if isinstance(cls, serialize.Pickle):
+        with pytest.raises(ValueError):
+            slz.open(path, 'a')
+
+
+# def test_Text(tmpdir):
+#
+#     path = str(tmpdir.mkdir('test_Text').join('data'))
+#
+#     data = [
+#         (1, 2, None),
+#         ('hey', tools.OrderableNone, 1.23)]
+#
+#     slz = serialize.Text()
+#
+#     assert isinstance(pickle.loads(pickle.dumps(slz)), )
+#     assert repr(slz).startswith('Text(')
+#
+#     with slz.open(path, 'w') as dst:
+#         for obj in data:
+#             dst.write(obj)
+#
+#     with slz.open(path) as src:
+#         for e, a in zip(data, src):
+#             assert e == a
