@@ -3,15 +3,14 @@ Sort stuff.  Big stuff, little stuff, any stuff!
 """
 
 
-from __future__ import absolute_import
-
+from contextlib import contextmanager
 import functools
 import itertools as it
 import logging
 import os
-import six
 import tempfile
 
+from tinymr._backport_heapq import merge as heapq_merge
 from tinymr import _mrtools
 from tinymr import serialize
 from tinymr import tools
@@ -20,189 +19,177 @@ from tinymr import tools
 logger = logging.getLogger('tinysort')
 
 
-def merge_files(*paths, **kwargs):
+@contextmanager
+def delete_files(*paths):
 
-    """
-    Merge sorted files into a single stream.  Files must contain data that can
-    be de-serialized with the same format.
-
-    Parameters
-    ----------
-    paths : *args
-        Sorted files to merge.
-    deserializer : tinymr.base.BaseSerializer, optional
-        Type of data contained within the files.
-    """
-
-    deserializer = kwargs.pop('deserializer', serialize.Pickle())
-    atomic = kwargs.pop('atomic', True)
-
-    handles = {}
     try:
+        yield paths
+    finally:
         for p in paths:
-            handles[p] = open(p, mode=deserializer._read_mode)
+            logger.debug("delete_files() - deleting %s", p)
+            try:
+                os.remove(p)
+            except OSError:
+                pass
 
-        readers = (deserializer._loader(f) for f in handles.values())
-        for item in tools.heapq_merge(*readers, **kwargs):
-            yield item
+
+@contextmanager
+def batch_open(*paths, mode='r', opener=open, **kwargs):
+
+    handles = []
+    try:
+
+        for p in paths:
+            handles.append(opener(p, mode, **kwargs))
+        yield tuple(handles)
 
     finally:
-        for fp, f in six.iteritems(handles):
-            f.close()
-            if atomic:
-                os.remove(fp)
+        for h in handles:
+            h.close()
 
 
-def _sort_and_dump(kwargs):
+def mem_sort(stream, chunksize, jobs=1, **kwargs):
+
+    slc = tools.slicer(stream, chunksize)
+    first = next(slc)
+
+    if len(first) < chunksize:
+        logger.debug(
+            "mem_sort() - only found %s objects and %s chunksize - sorting "
+            "without parallelism overhead", len(first), chunksize)
+        return iter(_mrtools.sorter(first, **kwargs))
+
+    else:
+
+        logger.debug(
+            "mem_sort() - sorting with %s jobs and chunksize %s", jobs, chunksize)
+
+        srt = functools.partial(_mrtools.sorter, **kwargs)
+        with tools.runner(srt, it.chain([first], slc), jobs) as results:
+            for obj in heapq_merge(*results, key=kwargs.get('key')):
+                yield obj
+
+
+def sort_into(values, f, **kwargs):
 
     """
-    Sort some data, dump it into a file, and return the file path.
-
-    This function takes a single argument so it can be used with `map()`.
+    Sort `values` into an open file-like object.
 
     Parameters
     ----------
-    kwargs : dict
-
-        data : iter
-            Data to process.
-
-        max_memory : int
-            Maximum amount of memory for `tempfile.SpooledTemporaryFile()`.
-
-        mode : str
-            I/O mode for tempfile.
-
-        sort_args : dict
-            **kwargs for `_mrtools.sorter()`.
+    values : iter
+        Data to sort.
+    f : file
+        Open file-like object supporting `f.write()`.
+    kwargs : **kwargs, optional
+        Keyword arguments for `sorted()`.
     """
 
-    data = kwargs.pop('data')
-    serializer = kwargs.pop('serializer')
-    sort_args = kwargs.pop('sort_args')
+    for item in _mrtools.sorter(values, **kwargs):
+        f.write(item)
+
+
+def _mp_sort_into_files(kwargs):
+    values = kwargs['values']
+    serializer = kwargs['serializer']
+    kwargs = kwargs['kwargs']
+
     _, path = tempfile.mkstemp()
 
-    logger.debug("Sorting %s items into %s", len(data), path)
+    with serializer.open(path, 'w') as dst:
+        sort_into(values, dst, **kwargs)
 
-    data = _mrtools.sorter(data, **sort_args)
-
-    return serializer._writefile(data, path, mode=serializer._write_mode)
+    return path
 
 
-def sort_stream(
-        stream,
-        serializer=serialize.Pickle(),
-        chunksize=100000,
-        jobs=1,
-        yield_paths=False,
-        allow_memory_sort=True,
-        **kwargs):
+def sort_into_files(
+        stream, chunksize, jobs=1, serializer=serialize.Pickle(), **kwargs):
 
     """
-    Sort a stream of data.
+    Sort a stream of data into one or more tempfiles on disk.  Data is chunked
+    into pieces and optionally processed in parallel.
 
     Parameters
     ----------
     stream : iter
         Data to sort.
-    serializer : tinymr.base.BaseSerializer, optional
-        Serialization class to use for reading/writing tempfiles.
-    chunksize : int, optional
-        Dump N items into each tempfile.
-    """
+    chunksize : int
+        Maximum amount of data to sort into each file.
+    jobs : int, optional
+        Process data across N cores.  Each job gets `chunksize` amount of data.
+    kwargs : **kwargs, optional
+        Keyword arguments for `sort_into()`.
 
-    # TODO: This is a somewhat naive implementation.  We could incorporate
-    # something like tempfile.SpooledTemporaryFile() or be smarter about when
-    # data is flushed to disk.  Would require more pickling to get data in
-    # and out of multiprocessing jobs, but would limit disk I/O.  If we don't
-    # exceed available memory don't flush the data to disk, just return a
-    # a StringIO().
+    Returns
+    -------
+    tuple
+        Paths to tempfiles on disk.
+    """
 
     logger.debug(
-        "Sorting a stream of data with %s jobs, chunksize %s, and "
-        "serializer %s", jobs, chunksize, serializer)
+        "sort_into_files() - sorting stream with chunksize=%s, jobs=%s, and "
+        "serializer=%s", chunksize, jobs, serializer)
 
-    chunked = tools.slicer(stream, chunksize)
-    initial = next(chunked)
+    tasks = ({
+        'values': values,
+        'serializer': serializer,
+        'kwargs': kwargs
+    } for values in tools.slicer(stream, chunksize))
 
-    if allow_memory_sort and len(initial) < chunksize:
-
-        logger.debug(
-            "Got %s items and chunksize %s- sorting in memory",
-            len(initial), chunksize)
-
-        for item in _mrtools.sorter(initial, **kwargs):
-            yield item
-
-    else:
-
-        logger.debug("Can't sort in-memory")
-
-        tasks = ({
-            'data': data,
-            'serializer': serializer,
-            'sort_args': kwargs
-        } for data in it.chain([initial], chunked))
-
-        with tools.runner(_sort_and_dump, tasks, jobs) as run:
-            paths = tuple(run)
-
-        logger.debug("Sorted data into %s files", len(paths))
-
-        if yield_paths:
-            for p in paths:
-                yield p
-
-        else:
-            for item in merge_files(*paths, **kwargs):
-                yield item
+    with tools.runner(_mp_sort_into_files, tasks, jobs) as run:
+        return tuple(run)
 
 
-def sort_file(path, deserializer=serialize.Pickle(), **kwargs):
+def _mp_sort_files(kwargs):
+    infile = kwargs['infile']
+    deserializer = kwargs['deserializer']
+    chunksize = kwargs['chunksize']
+    kwargs = kwargs['kwargs']
 
-    """
-    Sort a file with `sort_stream()`.  Mostly used by `sort_files()`.
-
-    Parameters
-    ----------
-    path : str
-        Path to the file on disk.
-    kwargs : **kwargs, optional
-        Arguments for `sort_stream()`.
-
-    Yield
-    -----
-    object
-    """
-
-    logger.debug("sort_file() with deserializer %s: %s", deserializer, path)
-
-    reader = deserializer._readfile(path)
-    for item in sort_stream(reader, **kwargs):
-        yield item
+    with deserializer.open(infile) as src:
+        return sort_into_files(src, chunksize=chunksize, jobs=1, **kwargs)
 
 
-def _file_sorter(*args, **kwargs):
+def sort_files_into_files(
+        *paths,
+        chunksize=100000,
+        jobs=1,
+        deserializer=serialize.Pickle(),
+        **kwargs):
 
-    return tuple(sort_file(*args, **kwargs))
+    logger.debug(
+        "sort_files_into_files() - sorting %s files with chunksize=%s, "
+        "jobs=%s, and deserializer=%s",
+        len(paths), chunksize, jobs, deserializer)
+
+    tasks = ({
+        'infile': fp,
+        'kwargs': kwargs,
+        'chunksize': chunksize,
+        'deserializer': deserializer
+    } for fp in paths)
+
+    with tools.runner(_mp_sort_files, tasks, jobs) as run:
+        return tuple(it.chain(*run))
 
 
 def sort_files(*paths, **kwargs):
 
-    jobs = kwargs.pop('jobs', 1)
-    kwargs.update(yield_paths=True, allow_memory_sort=False)
-    key = kwargs.get('key', lambda x: x)
-
-    file_sorter = functools.partial(_file_sorter, **kwargs)
-
     logger.debug(
-        "sort_files() - sorting %s files with %s jobs", len(paths), jobs)
+        "sort_files() - sorting %s files with %s jobs and total line count %s",
+        len(paths), kwargs.get('jobs', 1),
+        sum((tools.count_lines(p) for p in paths)))
 
-    with tools.runner(file_sorter, paths, jobs) as run:
-        paths = tuple(it.chain(*run))
+    serializer = kwargs.get('serializer', serialize.Pickle())
+    key = kwargs.get('key', None)
 
-    logger.debug(
-        "sort_files() - done sorting.  Merging %s files ...", len(paths))
+    with delete_files(*sort_files_into_files(*paths, **kwargs)) as paths:
 
-    for item in merge_files(*paths, key=key, atomic=True):
-        yield item
+        logger.debug(
+            "sort_files() - merging results from %s files with serializer=%s",
+            len(paths), serializer)
+
+        with batch_open(*paths, opener=serializer.open) as handles:
+
+            for obj in heapq_merge(*handles, key=key):
+                yield obj
