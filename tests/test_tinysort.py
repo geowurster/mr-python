@@ -7,6 +7,7 @@ import io
 import os
 
 import pytest
+import six
 
 from tinymr._backport_heapq import merge as heapq_merge
 from tinymr import serialize
@@ -45,10 +46,12 @@ def test_batch_open(tmpdir):
         assert not os.path.exists(p)
 
     with tinysort.batch_open(*paths, mode='w') as handles:
-        # There is no io.IOBase in Python 2.
-        types = (io.IOBase, globals()['__builtins__'].get('file', io.IOBase))
+        if six.PY2:
+            t = file
+        else:
+            t = io.IOBase
         for h in handles:
-            assert isinstance(h, types)
+            assert isinstance(h, t)
 
 
 def test_sort_into(tmpdir):
