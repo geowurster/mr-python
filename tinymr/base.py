@@ -14,6 +14,25 @@ from tinymr import errors
 from tinymr import tools
 
 
+class BaseSerializer(object):
+
+    """
+    Base class for creating data serialization formats.
+    """
+
+    def __repr__(self):
+        return "{}()".format(self.__class__.__name__)
+
+    def open(self, f, mode='r', *kwargs):
+
+        """
+        Open a file for reading or writing.  Resulting object is responsible
+        for serializing and de-serializing data.
+        """
+
+        raise NotImplementedError
+
+
 class BaseMapReduce(object):
 
     """
