@@ -4,7 +4,6 @@ Sort stuff.  Big stuff, little stuff, any stuff!
 
 
 from contextlib import contextmanager
-import functools
 import itertools as it
 import logging
 import os
@@ -19,8 +18,15 @@ from tinymr import tools
 logger = logging.getLogger('tinysort')
 
 
+CHUNKSIZE = 100000
+
+
 @contextmanager
 def delete_files(*paths):
+
+    """
+    Register file paths that are deleted on context exit.
+    """
 
     try:
         yield paths
@@ -36,6 +42,26 @@ def delete_files(*paths):
 @contextmanager
 def batch_open(*paths, mode='r', opener=open, **kwargs):
 
+    """
+    Like `open()` but operates on multiple file paths.
+
+    Parameters
+    ----------
+    paths : *str
+        File paths to open.
+    mode : str, optional
+        Like `open(mode='r')`.
+    opener : function, optional
+        The function responsible for actually opening the file paths.
+    kwargs : **kwargs, optional
+        Additional keyword arguments for `opener`.
+
+    Returns
+    -------
+    tuple
+        File handles.
+    """
+
     handles = []
     try:
 
@@ -46,28 +72,6 @@ def batch_open(*paths, mode='r', opener=open, **kwargs):
     finally:
         for h in handles:
             h.close()
-
-
-def mem_sort(stream, chunksize, jobs=1, **kwargs):
-
-    slc = tools.slicer(stream, chunksize)
-    first = next(slc)
-
-    if len(first) < chunksize:
-        logger.debug(
-            "mem_sort() - only found %s objects and %s chunksize - sorting "
-            "without parallelism overhead", len(first), chunksize)
-        return iter(_mrtools.sorter(first, **kwargs))
-
-    else:
-
-        logger.debug(
-            "mem_sort() - sorting with %s jobs and chunksize %s", jobs, chunksize)
-
-        srt = functools.partial(_mrtools.sorter, **kwargs)
-        with tools.runner(srt, it.chain([first], slc), jobs) as results:
-            for obj in heapq_merge(*results, key=kwargs.get('key')):
-                yield obj
 
 
 def sort_into(values, f, **kwargs):
@@ -90,6 +94,11 @@ def sort_into(values, f, **kwargs):
 
 
 def _mp_sort_into_files(kwargs):
+
+    """
+    `multiprocessing` function for `sort_into_files()`.
+    """
+
     values = kwargs['values']
     serializer = kwargs['serializer']
     kwargs = kwargs['kwargs']
@@ -103,11 +112,18 @@ def _mp_sort_into_files(kwargs):
 
 
 def sort_into_files(
-        stream, chunksize, jobs=1, serializer=serialize.Pickle(), **kwargs):
+        stream,
+        chunksize=CHUNKSIZE,
+        jobs=1,
+        serializer=serialize.Pickle(),
+        **kwargs):
 
     """
-    Sort a stream of data into one or more tempfiles on disk.  Data is chunked
-    into pieces and optionally processed in parallel.
+    Sort a stream of data into a bunch of tiny files on disk. 
+
+    The input `stream` is broken up into pieces containing no more than
+    `chunksize` objects.  Each piece is passed to a `multiprocessing` operation
+    that sorts it, flushes to a tempfile, and returns the tempfile path.
 
     Parameters
     ----------
@@ -141,32 +157,63 @@ def sort_into_files(
 
 
 def _mp_sort_files(kwargs):
+    
+    """
+    `multiprocessing` function for use with `sort_files()`
+    """
+    
     infile = kwargs['infile']
-    deserializer = kwargs['deserializer']
+    reader = kwargs['reader']
     chunksize = kwargs['chunksize']
     kwargs = kwargs['kwargs']
 
-    with deserializer.open(infile) as src:
+    with reader.open(infile) as src:
         return sort_into_files(src, chunksize=chunksize, jobs=1, **kwargs)
 
 
 def sort_files_into_files(
         *paths,
-        chunksize=100000,
+        chunksize=CHUNKSIZE,
         jobs=1,
-        deserializer=serialize.Pickle(),
+        reader=serialize.Pickle(),
         **kwargs):
+
+    """
+    Sort big files on disk into a bunch of tiny files on disk.
+    
+    Each input file is split into chunks with at most `chunksize` objects, which
+    are sorted and the serialized to disk.
+
+    Parameters
+    ----------
+    paths : *str
+        Input file paths.
+    chunksize : int, optional
+        Maximum number of objects to sort in memory in ech job.  The resulting
+        output tempfiles will contain at most `chunksize` objects.
+    jobs : int, optional
+        Process files in parallel across N cores.
+    reader : tinymr.base.BaseSerializer, optional
+        Serializer for reading data from disk.
+    kwargs : **kwargs
+        Keyword arguments for `sort_into_files()`.
+
+    Returns
+    -------
+    tuple
+        Tempfile paths.
+    """
 
     logger.debug(
         "sort_files_into_files() - sorting %s files with chunksize=%s, "
-        "jobs=%s, and deserializer=%s",
-        len(paths), chunksize, jobs, deserializer)
+        "jobs=%s, and reader=%s",
+        len(paths), chunksize, jobs, reader)
 
     tasks = ({
         'infile': fp,
         'kwargs': kwargs,
         'chunksize': chunksize,
-        'deserializer': deserializer
+        'reader': reader
     } for fp in paths)
 
     with tools.runner(_mp_sort_files, tasks, jobs) as run:
@@ -175,10 +222,15 @@ def sort_files_into_files(
 
 def sort_files(*paths, **kwargs):
 
+    """
+    Sorts files on disk into an output stream.
+    
+    Wrapper for `sort_files_into_files()` that merges with `heapq.merge()`.
+    """
+
     logger.debug(
-        "sort_files() - sorting %s files with %s jobs and total line count %s",
-        len(paths), kwargs.get('jobs', 1),
-        sum((tools.count_lines(p) for p in paths)))
+        "sort_files() - sorting %s files with %s jobs",
+        len(paths), kwargs.get('jobs', 1))
 
     serializer = kwargs.get('serializer', serialize.Pickle())
     key = kwargs.get('key', None)
