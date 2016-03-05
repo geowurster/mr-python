@@ -36,53 +36,46 @@ def test_default_methods():
     expected = [(i, tuple(range(i))) for i in range(1, 10)]
     assert list(mr.output(expected)) == expected
 
-
-def test_reduce_job_confs():
-    # Make sure attributes are coming from the correct location
-    class MR(base.BaseMapReduce):
-
-        jobs = 4
-        reduce2_chunksize = 10
-        reduce10_jobs = 2
-        sort = False
-        sort_reduce2 = True
-
-        # Define out of order to test sorting
-        def reducer10(self, key, values):
-            pass
-
-        def reducer(self, key, values):
-            pass
-
-        def reducer2(self, key, values):
-            pass
-
-    mr = MR()
-
-    rj = _mrtools.ReduceJobConf(
-        reducer=mr.reducer,
-        sort=False,
-        jobs=4,
-        chunksize=1)
-    rj2 = _mrtools.ReduceJobConf(
-        reducer=mr.reducer2,
-        sort=True,
-        jobs=4,
-        chunksize=10)
-    rj10 = _mrtools.ReduceJobConf(
-        reducer=mr.reducer10,
-        sort=False,
-        jobs=2,
-        chunksize=1)
-
-    assert mr._reduce_job_confs == [rj, rj2, rj10]
-
-
-def test_BaseSerializer_exceptions():
-
-    slz = base.BaseSerializer()
-    with pytest.raises(NotImplementedError):
-        slz.open(None, None)
+# TODO: Reimplement
+# def test_reduce_job_confs():
+#     # Make sure attributes are coming from the correct location
+#     class MR(base.BaseMapReduce):
+#
+#         jobs = 4
+#         reduce2_chunksize = 10
+#         reduce10_jobs = 2
+#         sort = False
+#         sort_reduce2 = True
+#
+#         # Define out of order to test sorting
+#         def reducer10(self, key, values):
+#             pass
+#
+#         def reducer(self, key, values):
+#             pass
+#
+#         def reducer2(self, key, values):
+#             pass
+#
+#     mr = MR()
+#
+#     rj = _mrtools.ReduceJobConf(
+#         reducer=mr.reducer,
+#         sort=False,
+#         jobs=4,
+#         chunksize=1)
+#     rj2 = _mrtools.ReduceJobConf(
+#         reducer=mr.reducer2,
+#         sort=True,
+#         jobs=4,
+#         chunksize=10)
+#     rj10 = _mrtools.ReduceJobConf(
+#         reducer=mr.reducer10,
+#         sort=False,
+#         jobs=2,
+#         chunksize=1)
+#
+#     assert mr._reduce_job_confs == [rj, rj2, rj10]
 
 
 # def test_context_manager():

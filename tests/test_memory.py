@@ -22,7 +22,9 @@ def test_MapReduce_init_reduce(tiny_text, tiny_text_wc_output, mr_wordcount_memo
             self.initialized = True
 
     with WCInitReduce() as wc:
+        assert not hasattr(wc, 'initialized')
         actual = wc(tiny_text.splitlines())
+        assert wc.initialized
 
 
 def test_MapReduce_sort():
@@ -66,13 +68,12 @@ def test_MapReduce_sort():
 
     wc = WordCount()
 
-    for attr in ('jobs', 'map_jobs', 'sort_jobs', 'reduce_jobs'):
+    for attr in ('jobs', 'map_jobs', 'reduce_jobs'):
         assert getattr(wc, attr) == 1
     for attr in ('sort', 'sort_map', 'sort_combine', 'sort_reduce', 'sort_output'):
         assert getattr(wc, attr)
-    for attr in ('chunksize', 'map_chunksize', 'reduce_chunksize', 'sort_chunksize'):
+    for attr in ('chunksize', 'map_chunksize', 'reduce_chunksize'):
         assert getattr(wc, attr) == 10
-
     assert tuple(wc(text)) == (
         ('key1', ('data1', 'data2')),
         ('key2', ('data1', 'data2')),
@@ -123,11 +124,11 @@ def test_MapReduce_no_sort():
             yield key, 'sort1', d1
 
     wc = WordCount()
-    for attr in ('jobs', 'map_jobs', 'sort_jobs', 'reduce_jobs'):
+    for attr in ('jobs', 'map_jobs', 'reduce_jobs'):
         assert getattr(wc, attr) == 1
     for attr in ('sort', 'sort_map', 'sort_combine', 'sort_reduce', 'sort_output'):
         assert getattr(wc, attr) is False
-    for attr in ('chunksize', 'map_chunksize', 'reduce_chunksize', 'sort_chunksize'):
+    for attr in ('chunksize', 'map_chunksize', 'reduce_chunksize'):
         assert getattr(wc, attr) == 10
 
     # Can't really check key order here, so we're just going to
@@ -184,11 +185,11 @@ def test_MapReduce_parallel_sort():
 
     wc = _WCParallelSort()
 
-    for attr in ('jobs', 'map_jobs', 'sort_jobs', 'reduce_jobs'):
+    for attr in ('jobs', 'map_jobs', 'reduce_jobs'):
         assert getattr(wc, attr) == 4
     for attr in ('sort', 'sort_map', 'sort_combine', 'sort_reduce', 'sort_output'):
         assert getattr(wc, attr)
-    for attr in ('chunksize', 'map_chunksize', 'reduce_chunksize', 'sort_chunksize'):
+    for attr in ('chunksize', 'map_chunksize', 'reduce_chunksize'):
         assert getattr(wc, attr) == 10
 
     assert tuple(wc(text)) == (

@@ -16,7 +16,7 @@ import os
 import six
 from six.moves import zip
 
-from tinymr._backport_heapq import merge as heapq_merge
+from tinysort._backport_heapq import merge as heapq_merge
 
 
 # Make instance methods pickle-able in Python 2

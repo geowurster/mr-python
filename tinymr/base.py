@@ -3,34 +3,9 @@ Base classes.  Subclass away!
 """
 
 
-import inspect
-from itertools import chain
 import logging
 
-import six
-
-from tinymr import _mrtools
 from tinymr import errors
-from tinymr import tools
-
-
-class BaseSerializer(object):
-
-    """
-    Base class for creating data serialization formats.
-    """
-
-    def __repr__(self):
-        return "{}()".format(self.__class__.__name__)
-
-    def open(self, f, mode='r', *kwargs):
-
-        """
-        Open a file for reading or writing.  Resulting object is responsible
-        for serializing and de-serializing data.
-        """
-
-        raise NotImplementedError
 
 
 class BaseMapReduce(object):
@@ -40,29 +15,84 @@ class BaseMapReduce(object):
     used by every implementation.
     """
 
-    def __enter__(self):
+    def mapper(self, item):
+        raise NotImplementedError
+
+    def combiner(self, key, values):
 
         """
-        See `__exit__` for context manager usage.
+        Not used by every MR implementation.  Receives the sorted output from
+        a single `mapper()` and acts as an initial `reducer()` to cut the data
+        volumn.
+
+        See `reducer()` for more information.
         """
 
-        # if self.closed:
-        #     raise IOError("MapReduce task is closed - cannot reuse.")
+        raise errors.CombinerNotImplemented()
 
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def reducer(self, key, values):
 
         """
-        Some MapReduce jobs benefit from storing data on the task class, but
-        this data
+        Receives sorted data for a single key for processing and yields 2 or 3
+        element tuples, depending on the sort strategy.
+
+        Parameters
+        ----------
+        key : object
+            The key for this group of data.
+        values : iter
+            Data to process.
+
+        Yields
+        ------
+        tuple
+            3 elements: `(partition, [sort], data)`.
         """
 
-        self._closed = True
-        self.close()
+        raise NotImplementedError
 
-    def __del__(self):
-        self.close()
+    def init_reduce(self):
+
+        """
+        Called immediately prior to the reduce phase and gives the user an
+        opportunity to make adjustments now that the entire dataset has been
+        observed in the map phase.
+        """
+
+        pass
+
+    def output(self, results):
+
+        """
+        Receives `(key, value)` pairs from each reducer.  The output of this
+        method is handed back to the parent process, so do whatever you want!
+
+        Default implementation is to yield a generator of `(key, values)` pairs
+        where `key` is a reducer key and `values` is the output from that
+        reducer as a tuple - this is always an iterable object but MAY be a
+        generator.
+
+        Properties
+        ----------
+        pairs : iter
+            `(key, data)` pairs from each reducer.
+
+        Returns
+        -------
+        object
+        """
+
+        return results
+
+    @property
+    def logger(self):
+
+        """
+        Each MapReduce task gets its own logger with a name like
+        `tinymr-ClassName`.
+        """
+
+        return logging.getLogger('tinymr-{}'.format(self.__class__.__name__))
 
     @property
     def jobs(self):
@@ -82,20 +112,6 @@ class BaseMapReduce(object):
 
         """
         Number of jobs to run in parallel during the map phase.  Defaults
-        to `jobs` property.
-
-        Returns
-        -------
-        int
-        """
-
-        return self.jobs
-
-    @property
-    def sort_jobs(self):
-
-        """
-        Number of jobs to run in parallel during the sort phases.  Defaults
         to `jobs` property.
 
         Returns
@@ -143,16 +159,6 @@ class BaseMapReduce(object):
         return self.chunksize
 
     @property
-    def sort_chunksize(self):
-
-        """
-        Amount of data to process in each `job` during the sort phase.
-        Defaults to `chunksize`.
-        """
-
-        return self.chunksize
-
-    @property
     def reduce_chunksize(self):
 
         """
@@ -166,7 +172,7 @@ class BaseMapReduce(object):
     def sort(self):
 
         """
-        Disable all sorting phases.  Setting individual properties overrides
+        Disable all sorting.  Setting individual properties overrides
         this setting for individual phases.
 
         Returns
@@ -203,6 +209,19 @@ class BaseMapReduce(object):
         return self.sort
 
     @property
+    def sort_reduce(self):
+
+        """
+        Sort the reduced values before passing to `output()`.
+
+        Returns
+        -------
+        bool
+        """
+
+        return self.sort
+
+    @property
     def sort_output(self):
 
         """
@@ -216,265 +235,31 @@ class BaseMapReduce(object):
         return self.sort
 
     @property
-    def sort_reduce(self):
+    def _has_combiner(self):
 
         """
-        Sort the output from each `reducer()` before executing the next or
-        before being passed to `output()`.
-
-        Define one property per reducer, so `reducer2()` would be
-        `sort_reduce2`.
-
-        Returns
-        -------
-        bool
+        Indicates whether a task has implemented a `combiner()`.
         """
 
-        return self.sort
-
-    @property
-    def logger(self):
-
-        """
-        Each MapReduce task gets its own logger with a name like
-        `tinymr-ClassName`.
-        """
-
-        return logging.getLogger('tinymr-{}'.format(self.__class__.__name__))
+        try:
+            self.combiner(None, None)
+            return True
+        except errors.CombinerNotImplemented:
+            return False
 
     def close(self):
 
         """
         Allows the user an opportunity to destroy any connections or data
         structures created in an `init` step.  See `__exit__` for more
-        information.  Note that the task will only be marked as `closed` if
-        used as a context manager or if this method sets `_closed = True`.
-
-        If a task does not need a teardown step then the instance can be
-        re-used multiple times with different datasets as long as it is _not_
-        used as a context manager.
+        information.
         """
 
-    def mapper(self, item):
+    def __enter__(self):
+        return self
 
-        """
-        Receives an item from the input data stream and yields one or more
-        2 or 3 element tuples.
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
-        Elements are used for:
-
-            1. Partitioning
-            2. Sorting
-            3. The data
-
-        If a two element tuple is produced then the first element will be used
-        for partitioning and sorting.
-
-        Parameters
-        ----------
-        item : object
-            Something to process.
-
-        Yields
-        ------
-        tuple
-        """
-
-        raise NotImplementedError
-
-    def combiner(self, key, values):
-
-        """
-        Not used by every MR implementation.  Receives the sorted output from
-        a single `mapper()` and acts as an initial `reducer()` to cut the data
-        volumn.
-
-        See `reducer()` for more information.
-        """
-
-        # Not required so we raise a special exception that we can catch later
-        # Raising NotImplementedError also causes linters and code inspectors
-        # to prompt the user to implement this method when it is not required.
-        raise errors._CombinerNotImplemented
-
-    def init_reduce(self):
-
-        """
-        Called immediately prior to the reduce phase and gives the user an
-        opportunity to make adjustments now that the entire dataset has been
-        observed in the map phase.
-        """
-
-    def reducer(self, key, values):
-
-        """
-        Receives sorted data for a single key for processing and yields 3
-        element tuples.
-
-        Parameters
-        ----------
-        key : object
-            The key for this group of data.
-        values : iter
-            Data to process.
-
-        Yields
-        ------
-        tuple
-            3 elements: `(partition, sort, data)`.
-        """
-
-        raise NotImplementedError
-
-    def output(self, pairs):
-
-        """
-        Receives `(key, value)` pairs from each reducer.  The output of this
-        method is handed back to the parent process, so do whatever you want!
-
-        Default implementation is to yield a generator of `(key, values)` pairs
-        where `key` is a reducer key and `values` is the output from that
-        reducer as a tuple - this is always an iterable object but MAY be a
-        generator.
-
-        Properties
-        ----------
-        pairs : iter
-            `(key, data)` pairs from each reducer.
-
-        Returns
-        -------
-        object
-        """
-
-        return ((key, tuple(values)) for key, values in pairs)
-
-    @property
-    def _reduce_job_confs(self):
-
-        """
-        The user can define multiple reduce operations, each with their own
-        independent job configuration, to be executed in a specified order.
-        This method produces one `_mrtools.ReduceJobConf()` per reduce
-        operation in execution order.
-
-        Returns
-        -------
-        tuple
-        """
-
-        # We encourage user's to add their own properties and methods, so
-        # we want to be really confident that we are _only_ grabbing the
-        # reducer methods, otherwise difficult to debug failures might pop up.
-        # Can't assume the reducers were defined in order.
-        reducers = {}
-        for method in (m for m in dir(self) if m != '_reduce_job_confs'):
-
-            if method.startswith('reducer') and \
-                    inspect.ismethod(getattr(self, method)):
-
-                str_idx = method.lstrip('reducer') or '-1'
-
-                sort_method = 'sort_reduce{}'.format(str_idx)
-                jobs_method = 'reduce{}_jobs'.format(str_idx)
-                chunksize_method = 'reduce{}_chunksize'.format(str_idx)
-
-                reducers[int(str_idx)] = _mrtools.ReduceJobConf(
-                    reducer=getattr(self, method),
-                    sort=getattr(self, sort_method, self.sort_reduce),
-                    jobs=getattr(self, jobs_method, self.reduce_jobs),
-                    chunksize=getattr(
-                        self, chunksize_method, self.reduce_chunksize))
-
-        return [reducers.pop(i) for i in sorted(reducers.keys())]
-
-    def _map_combine_partition(self, stream):
-
-        """
-        Run `mapper()`, partition, `combiner()` (if implemented) and partition
-        on a chunk of input data.  Data may be sorted between each phase
-        according to the control properties.
-
-        Produces a dictionary of partitioned data with sort keys intact.
-
-        Parameters
-        ----------
-        stream : iter
-            Input data passed to the MapReduce task.
-
-        Returns
-        -------
-        dict
-            {key: [(sort, data), (sort, data), ...]}
-        """
-
-        # Map, partition, and convert to a `(key, [v, a, l, u, e, s])` stream
-        mapped = chain(*(self.mapper(item) for item in stream))
-        map_partitioned = tools.partition(mapped)
-        map_partitioned = six.iteritems(map_partitioned)
-
-        if self.sort_map:
-            map_partitioned = _mrtools.sort_partitioned_values(map_partitioned)
-
-        try:
-
-            # The generators within this method get weird and don't break
-            # properly when wrapped in this try/except
-            # Instead we just kinda probe the `combiner()` to see if it exists
-            # and hope it doesn't do any setup.
-            self.combiner(None, None)
-            has_combiner = True
-
-        except errors.CombinerNotImplemented:
-            has_combiner = False
-
-        if has_combiner:
-            map_partitioned = _mrtools.strip_sort_key(map_partitioned)
-            combined = chain(*(self.combiner(k, v) for k, v in map_partitioned))
-            combine_partitioned = tools.partition(combined)
-            combine_partitioned = six.iteritems(combine_partitioned)
-
-        # If we don't have a combiner then we don't need to partition either
-
-
-
-        # because we're already dealing with partitioned output from the
-        # map phase
-        else:
-            combine_partitioned = map_partitioned
-
-        # If we don't have a combiner or if we're not sorting, then whatever
-        # we got from the mapper is good enough
-        if has_combiner and self.sort_combine:
-            combine_partitioned = _mrtools.sort_partitioned_values(
-                combine_partitioned)
-
-        return dict(combine_partitioned)
-
-    def _reduce_partition(self, stream, reducer, sort):
-
-        reduced = chain(*(reducer(k, v) for k, v in stream))
-        partitioned = tools.partition(reduced)
-        partitioned = six.iteritems(partitioned)
-
-        if sort:
-            partitioned = _mrtools.sort_partitioned_values(partitioned)
-
-        return tuple(partitioned)
-
-    def _output_sorter(self, kv_stream):
-
-        """
-        Sort data by key before it enters `output()`.
-
-        Parameters
-        ----------
-        kv_stream : iter
-            Producing `(key, iter(values))`.
-
-        Yields
-        ------
-        tuple
-        """
-
-        return ((k, v) for k, v in _mrtools.sorter(kv_stream, key=lambda x: x[0]))
+    def __del__(self):
+        self.close()
