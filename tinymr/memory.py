@@ -45,24 +45,6 @@ def _partition(stream, sort=False):
     return out
 
 
-class MemMRResults(object):
-
-    """
-    Wraps output results to avoid `repr()` confusion.
-    """
-
-    def __init__(self, stream):
-        self._stream = iter(stream)
-
-    def __iter__(self):
-        return self._stream
-
-    def __next__(self):
-        return next(self._stream)
-
-    next = __next__
-
-
 class MemMapReduce(base.BaseMapReduce):
 
     """
