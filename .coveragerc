@@ -1,2 +1,0 @@
-[run]
-omit: tinymr/_backport_heapq.py

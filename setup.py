@@ -64,7 +64,8 @@ setup(
     description="Pythonic in-memory MapReduce.",
     include_package_data=True,
     install_requires=[
-        'six'
+        'six',
+        'tinysort'
     ],
     extras_require={
         'dev': [
