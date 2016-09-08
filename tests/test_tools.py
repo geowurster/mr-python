@@ -1,14 +1,9 @@
 """Unittests for ``tinymr.tools``."""
 
 
-from collections import defaultdict
-from multiprocessing.pool import IMapUnorderedIterator
 import os
-import pickle
-from types import GeneratorType
 
 import pytest
-import six
 
 from tinymr import tools
 
@@ -28,7 +23,7 @@ def _icount_lines(path, minimum=1):
 
 
 def test_slicer_even():
-    it = tools.slicer(six.moves.xrange(100), 10)
+    it = tools.slicer(range(100), 10)
     for idx, actual in enumerate(it):
 
         assert isinstance(actual, tuple)
