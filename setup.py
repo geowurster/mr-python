@@ -6,6 +6,7 @@ Setup script for tinymr
 """
 
 
+import itertools as it
 import os
 
 from setuptools import find_packages
@@ -37,11 +38,21 @@ def parse_dunder_line(string):
 
 
 with open(os.path.join('tinymr', '__init__.py')) as f:
-    dunders = dict((parse_dunder_line(line) for line in f if line.strip().startswith('__')))
+    dunders = dict(map(
+        parse_dunder_line, filter(lambda l: l.strip().startswith('__'), f)))
     version = dunders['__version__']
     author = dunders['__author__']
     email = dunders['__email__']
     source = dunders['__source__']
+
+extras_require = {
+    'dev': [
+        'pytest',
+        'pytest-cov',
+        'coveralls',
+    ],
+}
+extras_require['all'] = list(it.chain.from_iterable(extras_require.values()))
 
 
 setup(
@@ -55,26 +66,13 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Topic :: Text Processing',
         'Topic :: Software Development :: Libraries',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
     description="Pythonic in-memory MapReduce.",
     include_package_data=True,
-    install_requires=[
-        'six',
-        'tinysort'
-    ],
-    extras_require={
-        'dev': [
-            'pytest',
-            'pytest-cov',
-            'coveralls',
-        ],
-    },
-    keywords='experimental map reduce mapreduce',
+    extras_require=extras_require,
+    keywords='experimental memory map reduce mapreduce',
     license="New BSD",
     long_description=readme,
     packages=find_packages(exclude=['tests']),

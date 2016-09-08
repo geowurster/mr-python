@@ -1,43 +1,9 @@
-"""
-Tools for building MapReduce implementations.
-"""
+"""Tools for working with data in a MapReduce context."""
 
 
-from __future__ import absolute_import
-
-
-from collections import defaultdict
 import itertools as it
 import io
-import multiprocessing as mp
-import operator
 import os
-
-import six
-from six.moves import zip
-
-from tinysort._backport_heapq import merge as heapq_merge
-
-
-# Make instance methods pickle-able in Python 2
-# Instance methods are not available as a type, so we have to create a tiny
-# class so we can grab an instance method
-# We then register our improved _reduce_method() with copy_reg so pickle knows
-# what to do.
-if six.PY2:  # pragma: no cover
-    import copy_reg
-
-    class _I:
-        def m(self):
-            pass
-
-    def _reduce_method(m):
-        if m.im_self is None:
-            return getattr, (m.im_class, m.im_func.func_name)
-        else:
-            return getattr, (m.im_self, m.im_func.func_name)
-
-    copy_reg.pickle(type(_I().m), _reduce_method)
 
 
 def slicer(iterable, chunksize):
@@ -76,77 +42,6 @@ def slicer(iterable, chunksize):
             raise StopIteration
 
 
-class runner(object):
-
-    """
-    The `multiprocessing` module can be difficult to debug and introduces some
-    overhead that isn't needed when only running one job.  Use a generator in
-    this case instead.
-
-    Wrapped in a class to make the context syntax optional.
-    """
-
-    nproc = mp.cpu_count()
-
-    def __init__(self, func, iterable, jobs):
-
-        """
-        Parameters
-        ----------
-        func : callable
-            Callable object to map across `iterable`.
-        iterable : iter
-            Data to process.
-        jobs : int
-            Number of `multiprocessing` jobs.
-        """
-
-        self._func = func
-        self._iterable = iterable
-        self._jobs = jobs
-        self._closed = False
-
-        if jobs < 1:
-            raise ValueError("jobs must be >= 1, not: {}".format(jobs))
-        elif jobs == 1:
-            self._pool = None
-            self._proc = (func(i) for i in iterable)
-        else:
-            self._pool = mp.Pool(jobs)
-            self._proc = self._pool.imap_unordered(func, iterable)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
-    def __repr__(self):
-        return "{cname}(func={func}, iterable={iterable}, jobs={jobs})".format(
-            cname=self.__class__.__name__,
-            func=repr(self._func),
-            iterable=repr(self._iterable),
-            jobs=self._jobs)
-
-    def __iter__(self):
-        return self._proc
-
-    def __next__(self):
-        return next(self._proc)
-
-    next = __next__
-
-    def close(self):
-
-        """
-        Close the `multiprocessing` pool if we're using it.
-        """
-
-        if self._pool is not None:
-            self._pool.close()
-        self._closed = True
-
-
 def mapkey(key, values):
 
     """
@@ -174,204 +69,6 @@ def mapkey(key, values):
     """
 
     return zip(it.repeat(key), values)
-
-
-def partition(key_values):
-
-    """
-    Given a stream of `(key, value)` tuples, group them by key into a dict.
-    Equivalent to the code below, but faster:
-
-        >>> from itertools import groupby
-        >>> {k: list(v) for k, v in groupby(key_values, key=lambda x: x[0])}
-
-    Example:
-
-        >>> data = [('key1', 1), ('key1', 2), ('key2', None)]
-        >>> partition(data)
-        {
-            'key1': [('key1', 1), ('key1', 2)],
-            'key2': [('key2', None)]
-        }
-
-    Parameters
-    ----------
-    key_values : iter
-        Tuples - typically `(key, value)`, although only the first key is
-
-    Returns
-    -------
-    dict
-    """
-
-    out = defaultdict(list)
-    for data in key_values:
-        out[data[0]].append(data[1:])
-
-    return dict(out)
-
-
-class Orderable(object):
-
-    """
-    Wraps an object to make it orderable.  The `make_orderable()` function is
-    intended to be the primary interface.
-    """
-
-    __slots__ = ['_obj', '_lt', '_le', '_gt', '_ge', '_eq']
-
-    def __init__(self, obj, lt=True, le=True, gt=False, ge=False, eq=False):
-
-        """
-        Default parameters make the object sort as less than or equal to.
-
-        Parameters
-        ----------
-        obj : object
-            The object being made orderable.
-        lt : bool, optional
-            Set `__lt__()` evaluation.
-        le : bool, optional
-            Set `__le__()` evaluation.
-        gt : bool, optional
-            Set `__gt__()` evaluation.
-        ge : bool, optional
-            Set `__ge__()` evaluation.
-        """
-
-        self._obj = obj
-        self._lt = lt
-        self._le = le
-        self._gt = gt
-        self._ge = ge
-        self._eq = eq
-
-    @property
-    def obj(self):
-
-        """
-        Handle to the object being made orderable.
-        """
-
-        return self._obj
-
-    def __lt__(self, other):
-        return self._lt
-
-    def __le__(self, other):
-        return self._le
-
-    def __gt__(self, other):
-        return self._gt
-
-    def __ge__(self, other):
-        return self._ge
-
-    def __eq__(self, other):
-
-        if isinstance(other, Orderable):
-            return operator.eq(self.obj, other.obj)
-        else:
-            return operator.eq(self.obj, other)
-
-    # Pickling with __slots__ in Python 2
-    if six.PY2:
-        def __getstate__(self):
-            return {k: getattr(self, k) for k in self.__slots__}
-
-        def __setstate__(self, state):
-            for k, v in six.iteritems(state):
-                setattr(self, k, v)
-
-
-def make_orderable(*args, **kwargs):
-
-    """
-    Make any object orderable.
-
-    Parameters
-    ----------
-    See `Orderable.__init__()`.
-
-    Returns
-    -------
-    Orderable
-    """
-
-    return Orderable(*args, **kwargs)
-
-
-class _OrderableNone(Orderable):
-
-    """
-    Like `None` but orderable.
-    """
-
-    def __init__(self):
-
-        """
-        Use the instantiated `OrderableNone` variable.
-        """
-
-        super(_OrderableNone, self).__init__(None)
-
-    def __eq__(self, other):
-        if isinstance(other, _OrderableNone):
-            return True
-        else:
-            return False
-
-    def __str__(self):
-
-        """
-        For serialization purposes we produce the name of the class as a string.
-        """
-
-        return 'OrderableNone'
-
-
-# Instantiate so we can make it more None-like
-OrderableNone = _OrderableNone()
-
-
-def merge_partitions(*partitions, **kwargs):
-
-    """
-    Merge data from multiple `partition()` operations into one dictionary.
-
-    Parameters
-    ----------
-    partitions : *args
-        Dictionaries from `partition()`.
-    sort : bool, optional
-        Sort partitioned data as it is merged.  Uses `heapq.merge()` so within
-        each partition's key, all values must be sorted smallest to largest.
-
-    Returns
-    -------
-    dict
-        {key: [values]}
-    """
-
-    sort = kwargs.pop('sort', False)
-    assert not kwargs, "Unrecognized kwargs: {}".format(kwargs)
-
-    partitions = (
-        six.iteritems(p) if isinstance(p, dict) else p for p in partitions)
-
-    out = defaultdict(list)
-
-    if not sort:
-        for ptn in partitions:
-            for key, values in ptn:
-                out[key].extend(values)
-    else:
-        for ptn in partitions:
-            for key, values in ptn:
-                out[key] = tuple(
-                    heapq_merge(out[key], values, key=lambda x: x[0]))
-
-    return dict(out)
 
 
 def count_lines(
@@ -443,7 +140,7 @@ def count_lines(
             readinto = getattr(f, 'raw', f).readinto  # no raw in PY2
             count = buff.count
 
-            for i in six.moves.xrange(blocks):
+            for i in range(blocks):
                 readinto(buff)
                 lines += count(nl)
 
@@ -461,34 +158,83 @@ def count_lines(
         return lines
 
 
-def popitems(dictionary, sort=False, **kwargs):
+def popitems(dictionary):
 
-    """
-    Like `dict.popitem()` but produces an iterator over all key, value pairs.
-    Used to maintain a low memory footprint.  Can optionally produce keys in
-    sorted order.
+    """Like ``dict.popitem()`` but iterates over all ``(key, value)`` pairs,
+    emptying the input ``dictionary``.  Useful for maintaining a lower memory
+    footprint at the expense of some additional function calls.
 
     Parameters
     ----------
     dictionary : dict
-        `dict()` to process.
-    sort : bool, optional
-        Produce keys in sorted order.
-    kwargs : **kwargs, optional
-        Keyword arguments for `sorter()` - only used if `sort=True`.
+        ``dict()`` to process.
 
     Yields
     ------
     tuple
-        (key, value)
+        ``(key, value)``
     """
 
-    if not sort:
-        while True:
-            try:
-                yield dictionary.popitem()
-            except KeyError:
-                raise StopIteration
-    else:
-        for k in sorted(dictionary.keys(), **kwargs):
-            yield k, dictionary.pop(k)
+    while True:
+        try:
+            yield dictionary.popitem()
+        except KeyError:
+            raise StopIteration
+
+
+def poplist(l):
+
+    """Like ``list.pop(0)`` but iterates over all items in the input list and
+    emptying it in the process.  Iterates from beginning to end.
+
+    Parameters
+    ----------
+    l : list
+        ``list()`` to process.
+
+    Yields
+    ------
+    object
+    """
+
+    while True:
+        try:
+            yield l.pop(0)
+        except IndexError:
+            raise StopIteration
+
+
+def single_key_output(items):
+
+    """Override ``MapReduce.output()`` with a custom method that passes
+    ``items`` to this method when dealing with outputs that only have a single
+    value for every key.  For the standard word count example this would
+    change the output from:
+
+        (word1, (sum,)
+        (word2, (sum,)
+        (word3, (sum,)
+
+    to:
+
+        (word1, sum)
+        (word2, sum)
+        (word3, sum)
+
+    The result is that the output can be passed directly to ``dict()``, if it
+    fits in memory for more straightforwad key -> value lookups, rather than
+    doing: ``next(iter(output[key]))``.
+
+    Parameters
+    ----------
+    items : iter
+        Stream of ``(key, values)`` pairs where ``values`` is also an iterable.
+
+    Yields
+    ------
+    tuple
+        The equivalent of ``(key, next(iter(values)))``.
+    """
+
+    for key, value in items:
+        yield key, next(iter(value))
