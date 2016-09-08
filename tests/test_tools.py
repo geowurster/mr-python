@@ -1,6 +1,4 @@
-"""
-Unittests for tinymr.tools
-"""
+"""Unittests for ``tinymr.tools``."""
 
 
 from collections import defaultdict
@@ -12,7 +10,6 @@ from types import GeneratorType
 import pytest
 import six
 
-from tinymr import errors
 from tinymr import tools
 
 
@@ -62,61 +59,6 @@ def _func(v):
     return v + 1
 
 
-def test_runner_1job():
-
-    input = list(range(10))
-    expected = tuple(i + 1 for i in input)
-
-    j1 = tools.runner(_func, input, 1)
-    assert isinstance(j1, tools.runner)
-    assert isinstance(iter(j1), GeneratorType)
-    assert tuple(j1) == expected
-
-
-def test_runner_2job():
-
-    input = list(range(10))
-    expected = tuple(i + 1 for i in input)
-
-    # Also tests context manager
-    with tools.runner(_func, input, 2) as j2:
-        assert not j2._closed
-        assert isinstance(j2, tools.runner)
-        assert isinstance(iter(j2), IMapUnorderedIterator)
-        assert tuple(sorted(j2)) == expected
-    assert j2._closed
-
-
-def test_runner_next():
-
-    input = list(range(10))
-    expected = list(i + 1 for i in input)
-
-    r = tools.runner(_func, input, 1)
-    assert next(r) == _func(input[0])
-
-    # Multiple jobs - have to pretty much run the whole thing and sort to compare
-    results = []
-    with tools.runner(_func, input, 2) as proc:
-        for i in input:
-            results.append(next(proc))
-
-    assert sorted(results) == expected
-
-
-def test_runner_attrs_and_exceptions():
-
-    # repr
-    r = tools.runner(_func, range(10), 2)
-    assert repr(r).startswith(r.__class__.__name__)
-    assert 'jobs=2' in repr(r)
-    assert 'iterable={}'.format(repr(range(10))) in repr(r)
-
-    # Bad values
-    with pytest.raises(ValueError):
-        tools.runner(None, None, -1)
-
-
 def test_mapkey():
 
     actual = tools.mapkey('key', range(5))
@@ -124,88 +66,6 @@ def test_mapkey():
 
     assert not isinstance(actual, (list, tuple))  # Make sure we get an iterator
     assert list(actual) == expected
-
-
-def test_Orderable():
-
-    on = tools.Orderable(None)
-    for v in (-1, 0, 1):
-        assert on < v
-        assert on <= v
-        assert not on > v
-        assert not on >= v
-        assert on != v
-        assert on.obj is None
-
-    on = tools.Orderable(None, lt=False, le=False, gt=True, ge=True)
-    for v in (-1, 0, 1):
-        assert on > v
-        assert on >= v
-        assert not on < v
-        assert not on <= v
-        assert on != v
-        assert on.obj is None
-
-    # Actually perform equality test
-    on = tools.Orderable(None, eq=None)
-    assert not on is False
-    assert not on == 67
-
-    # Never equal to a type
-    on = tools.Orderable(None, eq=False)
-    assert not on == 'True'
-    assert not on == 21
-
-    # Always equal to any type
-    on = tools.Orderable(None, eq=True)
-    assert not on == 'False'
-
-
-def test_OrderableNone():
-
-    assert isinstance(tools.OrderableNone, tools._OrderableNone)
-    assert tools.OrderableNone.obj is None
-    assert tools.OrderableNone != 1
-
-
-def test_partition():
-
-    data = [
-        (1, 2),
-        (1, 1),
-        (2, 1),
-        (3, 1),
-        ('ptn', 'sort', 'data')]
-
-    expected = {
-        1: [(2,), (1,)],
-        2: [(1,)],
-        3: [(1,)],
-        'ptn': [('sort', 'data')]}
-
-    ptn = tools.partition(data)
-
-    assert isinstance(ptn, dict)
-    assert not isinstance(ptn, defaultdict)
-    assert ptn == expected
-
-
-def test_merge_partitions():
-
-    dptn = {
-        1: [(1, 2), (1, 1)],
-        2: [(2, 1)],
-        3: [(3, 1)],
-        'ptn': [('ptn', 'sort', 'data')]}
-
-    expected = {
-        1: [(1, 2), (1, 1), (1, 2), (1, 1)],
-        2: [(2, 1), (2, 1)],
-        3: [(3, 1), (3, 1)],
-        'ptn': [('ptn', 'sort', 'data'), ('ptn', 'sort', 'data')]}
-
-    actual = tools.merge_partitions(dptn, dptn)
-    assert expected == actual
 
 
 def test_count_lines_exception(linecount_file):
@@ -316,40 +176,23 @@ def test_popitems():
     for k, v in tools.popitems(d):
         assert k < 10
         assert v == str(k)
-
     assert not d
 
 
-def test_popitems_sort():
-
-    d = {k: str(k) for k in reversed(range(10))}
-
-    for e, (k, v) in zip(range(10), tools.popitems(d, sort=True)):
-        assert e == k
-        assert v == str(k)
-        assert e < 10
-    assert not d
+def test_poplist():
+    l = list(range(10))
+    for v in tools.poplist(l):
+        assert v < 10
+        assert v not in l
+    assert not l
 
 
-def test_same_Orderable():
-    assert tools.Orderable(None) == tools.Orderable(None)
-    assert tools.Orderable(1) == tools.Orderable(1)
+def test_single_key_output():
 
-
-def test_make_orderable():
-    assert tools.make_orderable(None) == tools.Orderable(None)
-    assert tools.make_orderable(None) != tools.make_orderable(1)
-
-
-def test_pickle_OrderableNone():
-    p = pickle.dumps(tools.OrderableNone)
-    assert isinstance(pickle.loads(p), tools._OrderableNone)
-
-
-def test_pickle_Orderable():
-    obj = tools.make_orderable('stuff')
-    p = pickle.dumps(obj)
-    l = pickle.loads(p)
-    assert isinstance(l, tools.Orderable)
-    assert l.__class__.__dict__ == obj.__class__.__dict__
-    assert l.obj == obj.obj == 'stuff'
+    data = {
+        'key1': ('v1',),
+        'key2': ('v2',),
+        'key3': ('v3',)
+    }
+    expected = {k: next(iter(v)) for k, v in data.items()}
+    assert dict(tools.single_key_output(data.items())) == expected

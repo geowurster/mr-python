@@ -2,21 +2,15 @@ language: python
 
 sudo: false
 
-cache:
-  directories:
-    - ~/.cache/pip
+cache: pip
 
 python:
-  - 2.7
-  - 3.3
-  - 3.4
   - 3.5
-  - pypy
   - pypy3
 
 install:
   - pip install pip setuptools --upgrade
-  - pip install -e .\[dev\]
+  - pip install -e .\[all\]
 
 script:
   - py.test tests --cov tinymr --cov-report term-missing
