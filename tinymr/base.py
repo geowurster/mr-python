@@ -2,6 +2,7 @@
 
 
 import abc
+import functools
 
 
 class BaseMapReduce(object):
@@ -53,18 +54,25 @@ class BaseMapReduce(object):
         """
         pass
 
-    # @abc.abstractmethod
-    # def combiner(self, key, values):
-    #     """Mini reduce operation for the data from one map operation."""
-    #     raise NotImplementedError
+    @abc.abstractmethod
+    def __call__(self, *args, **kwargs):
+        """Responsible for doing all the work.  This is subclassed by the
+        various ``tinymr`` MapReduce implementations.
+        """
+        raise NotImplementedError
 
-    # @property
-    # @functools.lru_cache()
-    # def _has_combiner(self):
-    #     class _ProbeCombiner(object):
-    #         pass
-    #     try:
-    #         self.combiner(_ProbeCombiner, _ProbeCombiner)
-    #         return True
-    #     except NotImplementedError:
-    #         return False
+    @abc.abstractmethod
+    def combiner(self, key, values):
+        """Mini reduce operation for the data from one map operation."""
+        raise NotImplementedError
+
+    @property
+    @functools.lru_cache()
+    def _has_combiner(self):
+        class _ProbeCombiner(object):
+            pass
+        try:
+            self.combiner(_ProbeCombiner, _ProbeCombiner)
+            return True
+        except NotImplementedError:
+            return False
