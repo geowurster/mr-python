@@ -18,5 +18,11 @@ def test_not_implemented_methods():
 def test_default_methods():
 
     mr = base.BaseMapReduce()
+
     expected = [(i, tuple(range(i))) for i in range(1, 10)]
     assert list(mr.output(expected)) == expected
+
+    assert mr._sort_key_idx is None
+
+    with pytest.raises(NotImplementedError):
+        mr(None)
