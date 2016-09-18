@@ -115,43 +115,52 @@ class BaseMapReduce(_MRInternal):
 
     @property
     def chunksize(self):
+        """Default chunksize for map and reduce phases.  See ``map_chunksize``
+        and ``reduce_chunksize``.
+        """
         return 1
 
     @property
     def map_chunksize(self):
+        """Pass items in groups of N to each map job when running with
+        running with multiple jobs.
+        """
         return self.chunksize
 
     @property
     def reduce_chunksize(self):
+        """Pass items in groups of N to each reduce job when running with
+        multiple jobs.
+        """
         return self.chunksize
 
     @property
-    def threaded(self):
-        return False
-
-    @property
     def n_partition_keys(self):
+        """Grab the first N keys for partitioning."""
         return 1
 
     @property
     def n_sort_keys(self):
+        """Grab N keys after the partition keys when sorting."""
         return 0
-
-    @abc.abstractmethod
-    def mapper(self, item):
-        """Apply keys to each input item."""
-        raise NotImplementedError
 
     @property
     def threaded(self):
+        """Use threads instead of processes when running multiple jobs."""
         return False
 
     @property
     def threaded_map(self):
+        """When running multiple jobs, use threads for the map phase instead
+        of processes.
+        """
         return self.threaded
 
     @property
     def threaded_reduce(self):
+        """When running multiple jobs, use threads for the reduce phase
+        instead of processes.
+        """
         return self.threaded
 
     # @abc.abstractmethod
@@ -184,6 +193,11 @@ class BaseMapReduce(_MRInternal):
     @abc.abstractmethod
     def reducer(self, key, values):
         """Process the data for a single key."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def mapper(self, item):
+        """Apply keys to each input item."""
         raise NotImplementedError
 
     def output(self, items):
