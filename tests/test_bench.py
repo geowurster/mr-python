@@ -41,3 +41,12 @@ def test_timer_no_context_manager():
         elapsed.stop
     with pytest.raises(bench.TimerNotStarted):
         elapsed.stop_timer()
+
+
+def test_random_keys():
+    expected = [
+        (1, 1, 1),
+        (1, 1, 1),
+        (1, 1, 1)]
+    actual = bench.random_keys(3, 3, lambda: 1)
+    assert expected == list(actual)

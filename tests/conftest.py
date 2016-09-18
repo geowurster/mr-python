@@ -37,24 +37,6 @@ def tiny_text_wc_output():
 
 
 @pytest.fixture(scope='function')
-def mr_wordcount_memory_no_sort():
-
-    class WordCount(mr.memory.MemMapReduce):
-
-        def mapper(self, item):
-            for word in item.split():
-                yield word, 1
-
-        def reducer(self, key, values):
-            yield key, sum(values)
-
-        def output(self, pairs):
-            return {k: tuple(v)[0] for k, v in pairs}
-
-    return WordCount
-
-
-@pytest.fixture(scope='function')
 def linecount_file(tmpdir):
 
     """

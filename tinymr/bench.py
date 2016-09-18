@@ -121,3 +121,43 @@ class timer(object):
         """
 
         return self.delta.total_seconds()
+
+
+def random_keys(total, n, func):
+    """Generate a random set of test keys.
+
+    For example:
+
+        >>> import functools
+        >>> import random
+        >>> func = functools.partial(random.randint, 0, 100)
+        >>> for keys in random_keys(5, 3, func):
+        ...    print(keys)
+
+    produces:
+
+        (38, 18, 60)
+        (54, 26, 52)
+        (39, 89, 91)
+        (56, 19, 62)
+        (62, 14, 40)
+
+    A total of 5 groups of keys, each with 3 values between 0 and 100.
+
+    Parameters
+    ----------
+    total : int
+        The total number of groups of keys.
+    n : int
+        The number of keys per group.
+    func : callable
+        Function to generate a random value.
+
+    Yields
+    ------
+    tuple
+        Of length ``n``.
+    """
+
+    for _ in range(total):
+        yield tuple(func() for _ in range(n))
