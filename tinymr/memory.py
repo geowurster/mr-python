@@ -14,60 +14,77 @@ class MemMapReduce(base.BaseMapReduce):
 
     """In-memory MapReduce.  All data is held in memory."""
 
-    def __call__(self, data):
+    def _run_map(self, item):
+        return tuple(self.mapper(item))
 
-        # Map phase
-        mapped = it.chain.from_iterable(map(self.mapper, data))
+    def _run_reduce(self, kv):
+        key, values = kv
+        if self.n_sort_keys != 0:
+            values = sorted(values, key=op.itemgetter(0))
+            values = map(op.itemgetter(1), values)
+        return tuple(self.reducer(key, values))
 
-        first = next(mapped)
-        mapped = it.chain([first], mapped)
+    def __call__(self, stream):
 
-        n_expected_keys = self.n_partition_keys + self.n_sort_keys + 1
-        if len(first) != n_expected_keys:
+        if self.map_jobs == 1:
+            # We skip some function calls if we bypass _run_map()
+            # For tasks like word count this can matter a lot
+            results = map(self.mapper, stream)
+        else:
+            results = self._map_job_pool.imap_unordered(
+                self._run_map,
+                stream,
+                self.map_chunksize)
+        results = it.chain.from_iterable(results)
+
+        # It's very difficult to debug multiprocessing operations so we
+        # explicitly check the first set of keys and issue a much more
+        # useful error if the key count is wrong.
+        first = next(results)
+        results = it.chain([first], results)
+        expected_key_count = self.n_partition_keys + self.n_sort_keys + 1
+        if len(first) != expected_key_count:
             raise errors.KeyCountError(
-                "Expected mapper to generate {} keys but got {}: {}".format(
-                    n_expected_keys, len(first), first))
+                "Expected {expected} keys from the map phase, not {actual} - "
+                "first keys: {keys}".format(
+                    expected=expected_key_count,
+                    actual=len(first),
+                    keys=first))
 
         partitioned = defaultdict(deque)
-
-        _grouper_args = [self._ptn_key_idx, -1]
-        if self.n_sort_keys > 0:
-            _grouper_args.insert(1, self._sort_key_idx)
-        key_grouper = op.itemgetter(*_grouper_args)
-
-        mapped = map(key_grouper, mapped)
+        mapped = map(self._map_key_grouper, results)
         if self.n_sort_keys == 0:
-            for k, v in mapped:
-                partitioned[k].append(v)
-            partitioned = partitioned.items()
+            for ptn, val in mapped:
+                partitioned[ptn].append(val)
+            partitioned_items = partitioned.items()
         else:
-            for k, *sv in mapped:
-                partitioned[k].append(sv)
-            partitioned = partitioned.items()
-            partitioned = it.starmap(
-                lambda k, v: (k, sorted(v, key=op.itemgetter(0))),
-                partitioned)
-            partitioned = it.starmap(
-                lambda k, v: (k, tuple(map(op.itemgetter(1), v))),
-                partitioned)
+            for ptn, srt, val in mapped:
+                partitioned[ptn].append((srt, val))
             if self.n_partition_keys > 1:
-                partitioned = it.starmap(lambda k, v: (k[0], v), partitioned)
+                partitioned_items = it.starmap(
+                    lambda ptn, srt_val: (ptn[0], srt_val),
+                    partitioned.items())
+            else:
+                partitioned_items = partitioned.items()
 
-        # Reduce by key
         self.init_reduce()
-        reduced = it.chain.from_iterable(it.starmap(self.reducer, partitioned))
+        if self.reduce_jobs == 1:
+            results = map(self._run_reduce, partitioned_items)
+        else:
+            results = self._reduce_job_pool.imap_unordered(
+                self._run_reduce, partitioned_items, self.reduce_chunksize)
+        results = it.chain.from_iterable(results)
 
-        first = next(reduced)
-        reduced = it.chain([first], reduced)
-
+        # Same as with the map phase, we issue a more useful error
+        first = next(results)
+        results = it.chain([first], results)
         if len(first) != 2:
             raise errors.KeyCountError(
-                "Expected reducer to generate 2 keys but got {}:".format(
-                    len(first)), first)
+                "Expected 2 keys from the reduce phase, not {} - first "
+                "keys: {}".format(len(first), first))
 
-        # Partition by key
         partitioned = defaultdict(deque)
-        for k, v in reduced:
+        for k, v in results:
             partitioned[k].append(v)
 
         return self.output(tools.popitems(partitioned))

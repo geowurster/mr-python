@@ -3,6 +3,9 @@
 
 import abc
 import functools
+from multiprocessing.dummy import Pool as DummyPool
+from multiprocessing.pool import Pool
+import operator as op
 
 
 class _MRInternal(object):
@@ -36,11 +39,38 @@ class _MRInternal(object):
         if self.n_sort_keys == 0:
             return None
         elif self.n_sort_keys == 1:
-            return self.n_partition_keys + 1
+            # Given keys like: ('partition', 'sort', 'data')
+            # the number of partition keys equals the index of the single
+            # sort key
+            return self.n_partition_keys
         else:
             start = self.n_partition_keys
             stop = start + self.n_sort_keys
             return slice(start, stop)
+
+    @property
+    @functools.lru_cache()
+    def _map_key_grouper(self):
+        getter_args = [self._ptn_key_idx, -1]
+        if self.n_sort_keys > 0:
+            getter_args.insert(1, self._sort_key_idx)
+        return op.itemgetter(*getter_args)
+
+    @property
+    @functools.lru_cache()
+    def _map_job_pool(self):
+        if self.threaded_map:
+            return DummyPool(self.map_jobs)
+        else:
+            return Pool(self.map_jobs)
+
+    @property
+    @functools.lru_cache()
+    def _reduce_job_pool(self):
+        if self.threaded_reduce:
+            return DummyPool(self.reduce_jobs)
+        else:
+            return Pool(self.reduce_jobs)
 
     # @property
     # @functools.lru_cache()
@@ -78,29 +108,33 @@ class BaseMapReduce(_MRInternal):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    # @property
-    # def jobs(self):
-    #     return 1
-    #
-    # @property
-    # def map_jobs(self):
-    #     return self.jobs
-    #
-    # @property
-    # def reduce_jobs(self):
-    #     return self.jobs
-    #
-    # @property
-    # def chunksize(self):
-    #     return 1
-    #
-    # @property
-    # def map_chunksize(self):
-    #     return self.chunksize
-    #
-    # @property
-    # def reduce_chunksize(self):
-    #     return self.chunksize
+    @property
+    def jobs(self):
+        return 1
+
+    @property
+    def map_jobs(self):
+        return self.jobs
+
+    @property
+    def reduce_jobs(self):
+        return self.jobs
+
+    @property
+    def chunksize(self):
+        return 1
+
+    @property
+    def map_chunksize(self):
+        return self.chunksize
+
+    @property
+    def reduce_chunksize(self):
+        return self.chunksize
+
+    @property
+    def threaded(self):
+        return False
 
     @property
     def n_partition_keys(self):
@@ -114,6 +148,18 @@ class BaseMapReduce(_MRInternal):
     def mapper(self, item):
         """Apply keys to each input item."""
         raise NotImplementedError
+
+    @property
+    def threaded(self):
+        return False
+
+    @property
+    def threaded_map(self):
+        return self.threaded
+
+    @property
+    def threaded_reduce(self):
+        return self.threaded
 
     # @abc.abstractmethod
     # def combiner(self, key, values):

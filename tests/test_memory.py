@@ -2,29 +2,52 @@
 
 
 import itertools as it
+from multiprocessing.pool import ThreadPool
 import random
 
 from tinymr import errors
 from tinymr import memory
+from tinymr import tools
 
 import pytest
 
 
-def test_MapReduce_init_reduce(tiny_text, mr_wordcount_memory_no_sort):
+class _WordCount(memory.MemMapReduce):
 
-    class WCInitReduce(mr_wordcount_memory_no_sort):
+    """Define outside a function so other tests can subclass to test
+    concurrency and parallelism.
+    """
+
+    def mapper(self, item):
+        return zip(item.lower().split(), it.repeat(1))
+
+    def reducer(self, key, values):
+        yield key, sum(values)
+
+    def output(self, items):
+        return tools.single_key_output(items)
+
+
+@pytest.fixture(scope='module')
+def wordcount():
+    return _WordCount
+
+
+def test_init_reduce(tiny_text, wordcount):
+
+    class InitReduce(wordcount):
         def __init__(self):
             self.initialized_reduce = False
         def init_reduce(self):
             self.initialized_reduce = True
 
-    with WCInitReduce() as wc:
-        assert not wc.initialized_reduce
-        actual = wc(tiny_text.splitlines())
-        assert wc.initialized_reduce
+    wc = InitReduce()
+    assert not wc.initialized_reduce
+    tuple(wc(tiny_text.splitlines()))
+    assert wc.initialized_reduce
 
 
-def test_MapReduce_sort():
+def test_serial_sort():
 
     """Make sure enabling sorting actually sorts."""
 
@@ -56,7 +79,7 @@ def test_MapReduce_sort():
         'key3': ('data1', 'data2')}
 
 
-def test_MapReduce_no_sort():
+def test_serial_no_sort():
 
     """Make sure that disabling sorting actually disables sorting."""
 
@@ -82,7 +105,6 @@ def test_MapReduce_no_sort():
 
 
 class _WCParallelSort(memory.MemMapReduce):
-
     """Define out here so we can pickle it in multiprocessing."""
 
     # Make sure everything gets sent to a single map + combine
@@ -95,19 +117,12 @@ class _WCParallelSort(memory.MemMapReduce):
         yield item.split()
 
     def reducer(self, key, values):
-
-        d1, d2 = list(values)
-        assert [d1, d2] == ['data1', 'data2']
-
-        yield key, d2
-        yield key, d1
+        return zip(it.repeat(key), values)
 
 
-def test_MapReduce_parallel_sort():
+def test_parallel_sort():
 
-    """
-    Process in parallel with sorting.
-    """
+    """Process in parallel with sorting."""
 
     text = [
         'key2 sort2 data2',
@@ -175,3 +190,58 @@ def test_MemMapReduce_exceptions():
     tmrk = TooManyReducerKeys()
     with pytest.raises(errors.KeyCountError):
         tmrk([1])
+
+
+def test_run_map_method(wordcount):
+    """``tinymr.memory.MemMapReduce._run_map()`` isn't always called."""
+    wc = wordcount()
+    expected = (
+        ('key', 1),
+        ('value', 1)
+    )
+    assert expected == wc._run_map('key value')
+
+
+class _WCThreaded(_WordCount):
+    threaded = True
+
+
+def test_threaded(tiny_text, tiny_text_wc_output):
+    wc = _WCThreaded()
+    assert isinstance(wc._map_job_pool, ThreadPool)
+    assert isinstance(wc._reduce_job_pool, ThreadPool)
+    assert dict(wc(tiny_text.splitlines())) == dict(tiny_text_wc_output)
+
+
+def test_context_manager(wordcount, tiny_text, tiny_text_wc_output):
+
+    """Test context manager and ensure default implementation exists."""
+
+    class WordCount(wordcount):
+
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    with WordCount() as wc:
+        assert not wc.closed
+        assert dict(tiny_text_wc_output) == dict(wc(tiny_text.splitlines()))
+    assert wc.closed
+
+
+def test_MemMapReduce_properties(wordcount):
+
+    wc = wordcount()
+    assert wc.chunksize == 1
+    assert not wc.threaded
+    assert wc.close() is None
+
+    class WordCount(wordcount):
+        chunksize = 2
+
+    wc = WordCount()
+    assert wc.chunksize == 2
+    assert wc.map_chunksize == 2
+    assert wc.reduce_chunksize == 2
