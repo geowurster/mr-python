@@ -47,7 +47,7 @@ with open(os.path.join('tinymr', '__init__.py')) as f:
 
 extras_require = {
     'dev': [
-        'pytest',
+        'pytest>=3',
         'pytest-cov',
         'coveralls',
     ],
