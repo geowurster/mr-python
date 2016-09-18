@@ -2,7 +2,7 @@
 tinymr
 ======
 
-Experimental Pythonic MapReduce.
+Experimental Pythonic MapReduce / an exploration in parallelism.
 
 .. image:: https://travis-ci.org/geowurster/tinymr.svg?branch=master
     :target: https://travis-ci.org/geowurster/tinymr?branch=master
@@ -26,17 +26,20 @@ Here's a very fast and efficient word count example using Python's builtins:
 
 .. code-block:: python
 
+    from collections import Counter
     import itertools as it
     import operator as op
 
     def builtin_mr(lines):
-
         words = map(op.methodcaller('lower'), lines)
         words = map(op.methodcaller('split'), words)
         concatenated = it.chain.from_iterable(words)
         return Counter(concatenated)
 
-Currently the only MapReduce implementation is in-memory and serial:
+    with open('LICENSE.txt') as f:
+        builtin_mr(f)
+
+Currently the only MapReduce implementation is in-memory:
 
 .. code-block:: python
 
@@ -71,6 +74,58 @@ Truncated output:
         "and": 8,
         "andor": 1
     }
+
+
+Composite Keys
+--------------
+
+``tinymr`` transacts in ``tuples`` for several reasons: they're cheap to
+create, easy to read, and provide a uniform API for a (hopefully eventual)
+MapReduce implementation processing data that doesn't fit into memory.
+
+The trade off is that the key layout must be known before data is processed
+in order to partition and sort data properly and probably a bit of a
+performance hit when they keys are transformed internally.
+
+
+.. code-block:: python
+
+    from tinymr.memory import MemMapReduce
+
+    class CompositeKey(MemMapReduce):
+
+        n_partition_keys = 2
+        n_sort_keys = 2
+
+        def mapper(self, item):
+            yield partition1, partition2, sort1, sort2, data
+
+
+Combine Phase
+-------------
+
+Some MapReduce implementations use a combiner to reduce the amount of data
+coming out of each mapper.  Parallel and threaded in-memory tasks would
+benefit from a combine phase to reduce the amount of data passing through
+``pickle``, which is expensive.  The cost is an extra partition + sort phase
+that I have tried implementing many times, the first of which probably made
+it into the commit history, and the rest weren't good enough.  This is
+probably more useful for MapReduce implementations that include intermediary
+disk I/O so I'll try tackling it again if ``tinymr`` makes it that far.  My
+gut instinct is that its just not worth it for in-memory tasks, and the code
+required to do it at a reasonable speed is difficult to read and un-Pythonic.
+See the `Roadmap`_ for more info.
+
+
+Roadmap
+-------
+
+Ideally ``tinymr`` will:
+
+1. Have MapReduce implementations that run in-memory and with intermediary disk I/O.
+2. Let the user decide if the map and/or reduce happens in-memory or on disk.  Key handling is such that the API is the same and a flags should suffice.
+3. Support a combine phase, likely entirely in-memory.
+4. Provide the tools necessary for optimizing tasks.
 
 
 Developing
