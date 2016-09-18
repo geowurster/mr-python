@@ -5,6 +5,8 @@ import itertools as it
 import io
 import os
 
+from tinymr import _compat
+
 
 def slicer(iterable, chunksize):
 
@@ -68,7 +70,7 @@ def mapkey(key, values):
     iter
     """
 
-    return zip(it.repeat(key), values)
+    return _compat.zip(it.repeat(key), values)
 
 
 def count_lines(

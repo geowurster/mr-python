@@ -4,10 +4,12 @@
 from collections import deque, defaultdict
 import itertools as it
 import operator as op
+import sys
 
 from tinymr import base
 from tinymr import errors
 from tinymr import tools
+from tinymr import _compat
 
 
 class MemMapReduce(base.BaseMapReduce):
@@ -21,7 +23,7 @@ class MemMapReduce(base.BaseMapReduce):
         key, values = kv
         if self.n_sort_keys != 0:
             values = sorted(values, key=op.itemgetter(0))
-            values = map(op.itemgetter(1), values)
+            values = _compat.map(op.itemgetter(1), values)
         return tuple(self.reducer(key, values))
 
     def __call__(self, stream):
@@ -29,7 +31,7 @@ class MemMapReduce(base.BaseMapReduce):
         if self.map_jobs == 1:
             # We skip some function calls if we bypass _run_map()
             # For tasks like word count this can matter a lot
-            results = map(self.mapper, stream)
+            results = _compat.map(self.mapper, stream)
         else:
             results = self._map_job_pool.imap_unordered(
                 self._run_map,
@@ -52,7 +54,7 @@ class MemMapReduce(base.BaseMapReduce):
                     keys=first))
 
         partitioned = defaultdict(deque)
-        mapped = map(self._map_key_grouper, results)
+        mapped = _compat.map(self._map_key_grouper, results)
         if self.n_sort_keys == 0:
             for ptn, val in mapped:
                 partitioned[ptn].append(val)
@@ -69,7 +71,7 @@ class MemMapReduce(base.BaseMapReduce):
 
         self.init_reduce()
         if self.reduce_jobs == 1:
-            results = map(self._run_reduce, partitioned_items)
+            results = _compat.map(self._run_reduce, partitioned_items)
         else:
             results = self._reduce_job_pool.imap_unordered(
                 self._run_reduce, partitioned_items, self.reduce_chunksize)
@@ -88,3 +90,17 @@ class MemMapReduce(base.BaseMapReduce):
             partitioned[k].append(v)
 
         return self.output(tools.popitems(partitioned))
+
+
+# Required to make ``MemMapReduce._run_map()`` pickleable.
+if sys.version_info.major == 2:  # pragma: no cover
+
+    import copy_reg
+
+    def _reduce_method(m):
+        if m.im_self is None:
+            return getattr, (m.im_class, m.im_func.func_name)
+        else:
+            return getattr, (m.im_self, m.im_func.func_name)
+
+    copy_reg.pickle(type(MemMapReduce._run_map), _reduce_method)
