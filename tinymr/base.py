@@ -2,7 +2,6 @@
 
 
 import abc
-import functools
 from multiprocessing.dummy import Pool as DummyPool
 from multiprocessing.pool import Pool
 import operator as op
@@ -24,7 +23,6 @@ class _MRInternal(object):
         raise NotImplementedError
 
     @property
-    @functools.lru_cache()
     def _ptn_key_idx(self):
         if self.n_partition_keys == 1:
             return 0
@@ -32,7 +30,6 @@ class _MRInternal(object):
             return slice(0, self.n_partition_keys)
     
     @property
-    @functools.lru_cache()
     def _sort_key_idx(self):
         # Ensure a lack of sort keys is properly handled down the line by
         # letting something fail spectacularly
@@ -49,7 +46,6 @@ class _MRInternal(object):
             return slice(start, stop)
 
     @property
-    @functools.lru_cache()
     def _map_key_grouper(self):
         getter_args = [self._ptn_key_idx, -1]
         if self.n_sort_keys > 0:
@@ -57,7 +53,6 @@ class _MRInternal(object):
         return op.itemgetter(*getter_args)
 
     @property
-    @functools.lru_cache()
     def _map_job_pool(self):
         if self.threaded_map:
             return DummyPool(self.map_jobs)
@@ -65,7 +60,6 @@ class _MRInternal(object):
             return Pool(self.map_jobs)
 
     @property
-    @functools.lru_cache()
     def _reduce_job_pool(self):
         if self.threaded_reduce:
             return DummyPool(self.reduce_jobs)
@@ -73,7 +67,6 @@ class _MRInternal(object):
             return Pool(self.reduce_jobs)
 
     # @property
-    # @functools.lru_cache()
     # def _has_combiner(self):
     #     """Attempt to figure out if the ``combiner()`` is implemented.
     #
