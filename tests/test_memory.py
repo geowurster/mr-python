@@ -33,18 +33,24 @@ def wordcount():
     return _WordCount
 
 
-def test_init_reduce(tiny_text, wordcount):
+@pytest.mark.parametrize('method_name', ['init_map', 'init_reduce'])
+def test_init_phases(tiny_text, wordcount, method_name):
 
-    class InitReduce(wordcount):
+    """Test ``init_map()`` and ``init_reduce()``."""
+
+    class WordCount(wordcount):
         def __init__(self):
-            self.initialized_reduce = False
-        def init_reduce(self):
-            self.initialized_reduce = True
+            self.initialized = False
 
-    wc = InitReduce()
-    assert not wc.initialized_reduce
+        def initializer(self):
+            self.initialized = True
+
+    wc = WordCount()
+    setattr(wc, method_name, wc.initializer)
+
+    assert not wc.initialized
     tuple(wc(tiny_text.splitlines()))
-    assert wc.initialized_reduce
+    assert wc.initialized
 
 
 def test_serial_sort():
@@ -253,15 +259,18 @@ def test_MemMapReduce_check_keys(wordcount, tiny_text, method_name):
 
     """Tests both ``MR.check_map_keys()`` and ``MR.check_reduce_keys()``."""
 
-    def check_keys(keys):
-        # Its possible something like a ValueError, KeyError, or subclass of
-        # KeyError will be raised accidentally if something breaks in the
-        # code around where this check actually happens, but a NameError is
-        # much less likely, and even less likely to go unnoticed.
-        raise NameError(keys)
+    class WordCount(wordcount):
 
-    wc = wordcount()
-    setattr(wc, method_name, check_keys)
+        def checker(self, keys):
+            # Its possible something like a ValueError, KeyError, or subclass
+            # of KeyError will be raised accidentally if something breaks in
+            # the code around where this check actually happens, but a
+            # NameError is much less likely, and even less likely to go
+            # unnoticed.
+            raise NameError(keys)
+
+    wc = WordCount()
+    setattr(wc, method_name, wc.checker)
 
     with pytest.raises(NameError):
         wc(tiny_text)
