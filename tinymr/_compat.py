@@ -1,4 +1,4 @@
-"""Begrudgingly support Python 2"""
+"""Python 2 ... I guess ..."""
 
 
 import itertools as it

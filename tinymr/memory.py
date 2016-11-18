@@ -14,7 +14,7 @@ from tinymr import _compat
 
 class MemMapReduce(base.BaseMapReduce):
 
-    """In-memory MapReduce.  All data is held in memory."""
+    """In-memory MapReduce."""
 
     def _run_map(self, item):
         return tuple(self.mapper(item))
@@ -28,9 +28,11 @@ class MemMapReduce(base.BaseMapReduce):
 
     def __call__(self, stream):
 
+        self.init_map()
+
         if self.map_jobs == 1:
-            # We skip some function calls if we bypass _run_map()
-            # For tasks like word count this can matter a lot
+            # Avoid the overhead (and debugging complexities) of
+            # parallelized jobs
             results = _compat.map(self.mapper, stream)
         else:
             results = self._map_job_pool.imap_unordered(
@@ -39,9 +41,10 @@ class MemMapReduce(base.BaseMapReduce):
                 self.map_chunksize)
         results = it.chain.from_iterable(results)
 
-        # It's very difficult to debug multiprocessing operations so we
-        # explicitly check the first set of keys and issue a much more
-        # useful error if the key count is wrong.
+        # Parallelized jobs can be difficult to debug so the first set of
+        # keys get a sniff check for some obvious potential problems.
+        # Exceptions here prevent issues with multiprocessing getting confused
+        # when a job fails.
         first = next(results)
         results = it.chain([first], results)
         expected_key_count = self.n_partition_keys + self.n_sort_keys + 1
@@ -52,9 +55,12 @@ class MemMapReduce(base.BaseMapReduce):
                     expected=expected_key_count,
                     actual=len(first),
                     keys=first))
+        self.check_map_keys(first)
 
         partitioned = defaultdict(deque)
         mapped = _compat.map(self._map_key_grouper, results)
+
+        # Only sort when required
         if self.n_sort_keys == 0:
             for ptn, val in mapped:
                 partitioned[ptn].append(val)
@@ -64,11 +70,12 @@ class MemMapReduce(base.BaseMapReduce):
                 partitioned[ptn].append((srt, val))
             if self.n_partition_keys > 1:
                 partitioned_items = it.starmap(
-                    lambda ptn, srt_val: (ptn[0], srt_val),
+                    lambda _ptn, srt_val: (_ptn[0], srt_val),
                     partitioned.items())
             else:
                 partitioned_items = partitioned.items()
 
+        # Reduce phase
         self.init_reduce()
         if self.reduce_jobs == 1:
             results = _compat.map(self._run_reduce, partitioned_items)
@@ -77,13 +84,14 @@ class MemMapReduce(base.BaseMapReduce):
                 self._run_reduce, partitioned_items, self.reduce_chunksize)
         results = it.chain.from_iterable(results)
 
-        # Same as with the map phase, we issue a more useful error
+        # Same as with the map phase, issue a more useful error
         first = next(results)
         results = it.chain([first], results)
         if len(first) != 2:
             raise errors.KeyCountError(
                 "Expected 2 keys from the reduce phase, not {} - first "
                 "keys: {}".format(len(first), first))
+        self.check_reduce_keys(first)
 
         partitioned = defaultdict(deque)
         for k, v in results:
