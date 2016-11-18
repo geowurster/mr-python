@@ -6,6 +6,8 @@ from multiprocessing.dummy import Pool as DummyPool
 from multiprocessing.pool import Pool
 import operator as op
 
+from tinymr import errors
+
 
 class _MRInternal(object):
 
@@ -190,15 +192,35 @@ class BaseMapReduce(_MRInternal):
     #
     #     raise NotImplementedError
 
-    @abc.abstractmethod
-    def reducer(self, key, values):
-        """Process the data for a single key."""
-        raise NotImplementedError
+    def init_map(self):
+        """Called immediately before the map phase."""
+        pass
 
     @abc.abstractmethod
     def mapper(self, item):
         """Apply keys to each input item."""
         raise NotImplementedError
+
+    def check_map_keys(self, keys):
+        """Provides an opportunity to check the first set of keys
+        produced by the map phase.
+        """
+        pass
+
+    def init_reduce(self):
+        """Called immediately before the reduce phase."""
+        pass
+
+    @abc.abstractmethod
+    def reducer(self, key, values):
+        """Process the data for a single key."""
+        raise NotImplementedError
+
+    def check_reduce_keys(self, keys):
+        """Provides an opportunity to check the first set of keys
+        produced by the map phase.
+        """
+        pass
 
     def output(self, items):
         """Intercept the output post-reduce phase for one final transform.
@@ -212,12 +234,6 @@ class BaseMapReduce(_MRInternal):
         be iterable but not of any specific type.
         """
         return items
-
-    def init_reduce(self):
-        """Called immediately before the reduce phase outside of any parallel
-        context.
-        """
-        pass
 
     def close(self):
         """Only automatically called only when using the MapReduce task as a

@@ -28,7 +28,7 @@ class _WordCount(memory.MemMapReduce):
         return tools.single_key_output(items)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='class')
 def wordcount():
     return _WordCount
 
@@ -245,3 +245,23 @@ def test_MemMapReduce_properties(wordcount):
     assert wc.chunksize == 2
     assert wc.map_chunksize == 2
     assert wc.reduce_chunksize == 2
+
+
+@pytest.mark.parametrize(
+    'method_name', ['check_map_keys', 'check_reduce_keys'])
+def test_MemMapReduce_check_keys(wordcount, tiny_text, method_name):
+
+    """Tests both ``MR.check_map_keys()`` and ``MR.check_reduce_keys()``."""
+
+    def check_keys(keys):
+        # Its possible something like a ValueError, KeyError, or subclass of
+        # KeyError will be raised accidentally if something breaks in the
+        # code around where this check actually happens, but a NameError is
+        # much less likely, and even less likely to go unnoticed.
+        raise NameError(keys)
+
+    wc = wordcount()
+    setattr(wc, method_name, check_keys)
+
+    with pytest.raises(NameError):
+        wc(tiny_text)
