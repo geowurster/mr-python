@@ -123,7 +123,7 @@ class timer(object):
         return self.delta.total_seconds()
 
 
-def random_keys(total, n, func):
+def keygen(total, n, func):
     """Generate a random set of test keys.
 
     For example:
@@ -131,7 +131,7 @@ def random_keys(total, n, func):
         >>> import functools
         >>> import random
         >>> func = functools.partial(random.randint, 0, 100)
-        >>> for keys in random_keys(5, 3, func):
+        >>> for keys in keygen(5, 3, func):
         ...    print(keys)
 
     produces:

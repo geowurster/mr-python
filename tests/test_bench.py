@@ -48,5 +48,5 @@ def test_random_keys():
         (1, 1, 1),
         (1, 1, 1),
         (1, 1, 1)]
-    actual = bench.random_keys(3, 3, lambda: 1)
+    actual = bench.keygen(3, 3, lambda: 1)
     assert expected == list(actual)
