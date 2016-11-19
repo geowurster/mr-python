@@ -3,11 +3,8 @@
 
 import itertools as it
 from multiprocessing.pool import ThreadPool
-import time
-import types
 import random
 
-from tinymr import bench
 from tinymr import errors
 from tinymr import memory
 from tinymr import tools
@@ -188,7 +185,7 @@ def test_MemMapReduce_exceptions():
 
     tmmk = TooManyMapperKeys()
     with pytest.raises(errors.KeyCountError):
-        tuple(tmmk([1]))
+        tmmk([1])
 
     class TooManyReducerKeys(memory.MemMapReduce):
         def mapper(self, item):
@@ -198,7 +195,7 @@ def test_MemMapReduce_exceptions():
 
     tmrk = TooManyReducerKeys()
     with pytest.raises(errors.KeyCountError):
-        tuple(tmrk([1]))
+        tmrk([1])
 
 
 def test_run_map_method(wordcount):
@@ -276,27 +273,4 @@ def test_MemMapReduce_check_keys(wordcount, tiny_text, method_name):
     setattr(wc, method_name, wc.checker)
 
     with pytest.raises(NameError):
-        tuple(wc(tiny_text))
-
-
-def test_MemMapReduce_generator(wordcount, tiny_text):
-
-    """By default the output should be a generator, and no work should happen
-    until the output is iterated over.
-    """
-
-    class WordCount(wordcount):
-
-        def mapper(self, line):
-            raise Exception
-
-        def reducer(self, key, values):
-            raise Exception
-
-    wc = WordCount()
-
-    with bench.timer() as elapsed:
-        output = wc(tiny_text.splitlines())
-
-    assert isinstance(output, types.GeneratorType)
-    assert elapsed.seconds < 1
+        wc(tiny_text)
