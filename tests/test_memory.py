@@ -274,3 +274,23 @@ def test_MemMapReduce_check_keys(wordcount, tiny_text, method_name):
 
     with pytest.raises(NameError):
         wc(tiny_text)
+
+
+def test_closed(wordcount):
+
+    """An instance of a task that has been closed should raise an exception
+    if it is used twice.
+    """
+
+    wc = wordcount()
+    assert not wc.closed
+    wc.close()
+    assert wc.closed
+    with pytest.raises(errors.ClosedTaskError):
+        wc('')
+
+    with wordcount() as wc:
+        assert not wc.closed
+    assert wc.closed
+    with pytest.raises(errors.ClosedTaskError):
+        wc('')
