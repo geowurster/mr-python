@@ -6,8 +6,6 @@ from multiprocessing.dummy import Pool as DummyPool
 from multiprocessing.pool import Pool
 import operator as op
 
-from tinymr import errors
-
 
 class _MRInternal(object):
 
@@ -30,7 +28,7 @@ class _MRInternal(object):
             return 0
         else:
             return slice(0, self.n_partition_keys)
-    
+
     @property
     def _sort_key_idx(self):
         # Ensure a lack of sort keys is properly handled down the line by
@@ -91,11 +89,6 @@ class _MRInternal(object):
     #     # implemented and let the combine phase fail if its not
     #     except Exception:
     #         return True
-
-
-def _ensure_context(p, *args, **kwargs):
-    raise Exception(dir(p))
-
 
 
 class BaseMapReduce(_MRInternal):
@@ -295,5 +288,10 @@ class BaseMapReduce(_MRInternal):
     def close(self):
         """Only automatically called only when using the MapReduce task as a
         context manager.
+
+        Be sure to set ``self.closed = True`` when overriding this method,
+        otherwise a task can be used twice.  The assumption is that using an
+        instance of a task after  ``MapReduce.close()`` or
+        ``MapReduce.__exit__()`` is called will raise an exception.
         """
-        pass
+        self.closed = True

@@ -4,6 +4,7 @@
 import pytest
 
 from tinymr import base
+from tinymr import errors
 
 
 def test_not_implemented_methods():
@@ -70,3 +71,17 @@ def test_set_properties():
         # original state this test is a little more sensitive to human
         # errors, like if 'jobs.setter' actually points to 'chunksize'.
         setattr(mr, p, original)
+
+
+def test_closed():
+
+    """Can't use a closed task twice."""
+
+    mr = base.BaseMapReduce()
+    assert not mr.closed
+    mr.close()
+    assert mr.closed
+
+    with base.BaseMapReduce() as mr:
+        assert not mr.closed
+    assert mr.closed

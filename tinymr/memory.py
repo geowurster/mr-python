@@ -28,6 +28,9 @@ class MemMapReduce(base.BaseMapReduce):
 
     def __call__(self, stream):
 
+        if self.closed:
+            raise errors.ClosedTaskError("Task is closed.")
+
         self.init_map()
 
         if self.map_jobs == 1:
