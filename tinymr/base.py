@@ -93,6 +93,11 @@ class _MRInternal(object):
     #         return True
 
 
+def _ensure_context(p, *args, **kwargs):
+    raise Exception(dir(p))
+
+
+
 class BaseMapReduce(_MRInternal):
 
     """Base class for various MapReduce implementations."""
@@ -105,65 +110,109 @@ class BaseMapReduce(_MRInternal):
 
     @property
     def jobs(self):
-        return 1
+        return getattr(self, '_mr_jobs', 1)
+
+    @jobs.setter
+    def jobs(self, value):
+        self._mr_jobs = value
 
     @property
     def map_jobs(self):
-        return self.jobs
+        return getattr(self, '_mr_map_jobs', self.jobs)
+
+    @map_jobs.setter
+    def map_jobs(self, value):
+        self._mr_map_jobs = value
 
     @property
     def reduce_jobs(self):
-        return self.jobs
+        return getattr(self, '_mr_reduce_jobs', self.jobs)
+
+    @reduce_jobs.setter
+    def reduce_jobs(self, value):
+        self._mr_reduce_jobs = value
 
     @property
     def chunksize(self):
         """Default chunksize for map and reduce phases.  See ``map_chunksize``
         and ``reduce_chunksize``.
         """
-        return 1
+        return getattr(self, '_mr_chunksize', 1)
+
+    @chunksize.setter
+    def chunksize(self, value):
+        self._mr_chunksize = value
 
     @property
     def map_chunksize(self):
         """Pass items in groups of N to each map job when running with
         running with multiple jobs.
         """
-        return self.chunksize
+        return getattr(self, '_mr_map_chunksize', self.chunksize)
+
+    @map_chunksize.setter
+    def map_chunksize(self, value):
+        self._mr_map_chunksize = value
 
     @property
     def reduce_chunksize(self):
         """Pass items in groups of N to each reduce job when running with
         multiple jobs.
         """
-        return self.chunksize
+        return getattr(self, '_mr_reduce_chunksize', self.chunksize)
+
+    @reduce_chunksize.setter
+    def reduce_chunksize(self, value):
+        self._mr_reduce_chunksize = value
 
     @property
     def n_partition_keys(self):
         """Grab the first N keys for partitioning."""
-        return 1
+        return getattr(self, '_mr_n_partition_keys', 1)
+
+    @n_partition_keys.setter
+    def n_partition_keys(self, value):
+        self._mr_n_partition_keys = value
 
     @property
     def n_sort_keys(self):
         """Grab N keys after the partition keys when sorting."""
-        return 0
+        return getattr(self, '_mr_n_sort_keys', 0)
+
+    @n_sort_keys.setter
+    def n_sort_keys(self, value):
+        self._mr_n_sort_keys = value
 
     @property
     def threaded(self):
         """Use threads instead of processes when running multiple jobs."""
-        return False
+        return getattr(self, '_mr_threaded', False)
+
+    @threaded.setter
+    def threaded(self, value):
+        self._mr_threaded = value
 
     @property
     def threaded_map(self):
         """When running multiple jobs, use threads for the map phase instead
         of processes.
         """
-        return self.threaded
+        return getattr(self, '_mr_threaded_map', self.threaded)
+
+    @threaded_map.setter
+    def threaded_map(self, value):
+        self._mr_threaded_map = value
 
     @property
     def threaded_reduce(self):
         """When running multiple jobs, use threads for the reduce phase
         instead of processes.
         """
-        return self.threaded
+        return getattr(self, '_mr_threaded_reduce', self.threaded)
+
+    @threaded_reduce.setter
+    def threaded_reduce(self, value):
+        self._mr_threaded_reduce = value
 
     # @abc.abstractmethod
     # def combiner(self, key, values):
