@@ -214,6 +214,14 @@ class BaseMapReduce(_MRInternal):
     def threaded_reduce(self, value):
         self._mr_threaded_reduce = value
 
+    @property
+    def closed(self):
+        return getattr(self, '_mr_closed', False)
+
+    @closed.setter
+    def closed(self, value):
+        self._mr_closed = value
+
     # @abc.abstractmethod
     # def combiner(self, key, values):
     #     """Mini reduce operation for the data from one map operation.
