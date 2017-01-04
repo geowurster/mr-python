@@ -1,106 +1,185 @@
 """In-memory MapReduce.  Get weird."""
 
 
-from collections import deque, defaultdict
-import itertools as it
-import operator as op
+import abc
 import sys
 
-from tinymr import base
-from tinymr import errors
-from tinymr import tools
-from tinymr import _compat
+from tinymr._base import _MRInternal
 
 
-class MemMapReduce(base.BaseMapReduce):
+class MemMapReduce(_MRInternal):
 
-    """In-memory MapReduce."""
+    """In-memory MapReduce.  Subclassers must implement ``mapper()`` and
+    ``reducer()``.
+    """
 
-    def _run_map(self, item):
-        return tuple(self.mapper(item))
+    @abc.abstractmethod
+    def mapper(self, item):
+        """Apply keys to each input item."""
+        raise NotImplementedError
 
-    def _run_reduce(self, kv):
-        key, values = kv
-        if self.n_sort_keys != 0:
-            values = sorted(values, key=op.itemgetter(0))
-            values = _compat.map(op.itemgetter(1), values)
-        return tuple(self.reducer(key, values))
+    @abc.abstractmethod
+    def reducer(self, key, values):
+        """Process the data for a single key."""
+        raise NotImplementedError
 
-    def __call__(self, stream):
+    def output(self, items):
+        """Intercept the output post-reduce phase for one final transform.
+        Data looks like:
 
-        if self.closed:
-            raise errors.ClosedTaskError("Task is closed.")
+            (key3, values)
+            (key1, values)
+            (key2, values)
 
-        self.init_map()
+        Data is not guaranteed to be ordered by key.  Values are guaranteed to
+        be iterable but not of any specific type.
+        """
+        return items
 
-        if self.map_jobs == 1:
-            # Avoid the overhead (and debugging complexities) of
-            # parallelized jobs
-            results = _compat.map(self.mapper, stream)
-        else:
-            results = self._map_job_pool.imap_unordered(
-                self._run_map,
-                stream,
-                self.map_chunksize)
-        results = it.chain.from_iterable(results)
+    @property
+    def jobs(self):
+        return getattr(self, '_mr_jobs', 1)
 
-        # Parallelized jobs can be difficult to debug so the first set of
-        # keys get a sniff check for some obvious potential problems.
-        # Exceptions here prevent issues with multiprocessing getting confused
-        # when a job fails.
-        first = next(results)
-        results = it.chain([first], results)
-        expected_key_count = self.n_partition_keys + self.n_sort_keys + 1
-        if len(first) != expected_key_count:
-            raise errors.KeyCountError(
-                "Expected {expected} keys from the map phase, not {actual} - "
-                "first keys: {keys}".format(
-                    expected=expected_key_count,
-                    actual=len(first),
-                    keys=first))
-        self.check_map_keys(first)
+    @jobs.setter
+    def jobs(self, value):
+        self._mr_jobs = value
 
-        partitioned = defaultdict(deque)
-        mapped = _compat.map(self._map_key_grouper, results)
+    @property
+    def map_jobs(self):
+        return getattr(self, '_mr_map_jobs', self.jobs)
 
-        # Only sort when required
-        if self.n_sort_keys == 0:
-            for ptn, val in mapped:
-                partitioned[ptn].append(val)
-            partitioned_items = partitioned.items()
-        else:
-            for ptn, srt, val in mapped:
-                partitioned[ptn].append((srt, val))
-            if self.n_partition_keys > 1:
-                partitioned_items = it.starmap(
-                    lambda _ptn, srt_val: (_ptn[0], srt_val),
-                    partitioned.items())
-            else:
-                partitioned_items = partitioned.items()
+    @map_jobs.setter
+    def map_jobs(self, value):
+        self._mr_map_jobs = value
 
-        # Reduce phase
-        self.init_reduce()
-        if self.reduce_jobs == 1:
-            results = _compat.map(self._run_reduce, partitioned_items)
-        else:
-            results = self._reduce_job_pool.imap_unordered(
-                self._run_reduce, partitioned_items, self.reduce_chunksize)
-        results = it.chain.from_iterable(results)
+    @property
+    def reduce_jobs(self):
+        return getattr(self, '_mr_reduce_jobs', self.jobs)
 
-        # Same as with the map phase, issue a more useful error
-        first = next(results)
-        results = it.chain([first], results)
-        if len(first) != 2:
-            raise errors.KeyCountError(
-                "Expected 2 keys from the reduce phase, not {} - first "
-                "keys: {}".format(len(first), first))
-        self.check_reduce_keys(first)
+    @reduce_jobs.setter
+    def reduce_jobs(self, value):
+        self._mr_reduce_jobs = value
 
-        partitioned = defaultdict(deque)
-        for k, v in results:
-            partitioned[k].append(v)
+    @property
+    def chunksize(self):
+        """Default chunksize for map and reduce phases.  See ``map_chunksize``
+        and ``reduce_chunksize``.
+        """
+        return getattr(self, '_mr_chunksize', 1)
 
-        return self.output(tools.popitems(partitioned))
+    @chunksize.setter
+    def chunksize(self, value):
+        self._mr_chunksize = value
+
+    @property
+    def map_chunksize(self):
+        """Pass items in groups of N to each map job when running with
+        running with multiple jobs.
+        """
+        return getattr(self, '_mr_map_chunksize', self.chunksize)
+
+    @map_chunksize.setter
+    def map_chunksize(self, value):
+        self._mr_map_chunksize = value
+
+    @property
+    def reduce_chunksize(self):
+        """Pass items in groups of N to each reduce job when running with
+        multiple jobs.
+        """
+        return getattr(self, '_mr_reduce_chunksize', self.chunksize)
+
+    @reduce_chunksize.setter
+    def reduce_chunksize(self, value):
+        self._mr_reduce_chunksize = value
+
+    @property
+    def n_partition_keys(self):
+        """Grab the first N keys for partitioning."""
+        return getattr(self, '_mr_n_partition_keys', 1)
+
+    @n_partition_keys.setter
+    def n_partition_keys(self, value):
+        self._mr_n_partition_keys = value
+
+    @property
+    def n_sort_keys(self):
+        """Grab N keys after the partition keys when sorting."""
+        return getattr(self, '_mr_n_sort_keys', 0)
+
+    @n_sort_keys.setter
+    def n_sort_keys(self, value):
+        self._mr_n_sort_keys = value
+
+    @property
+    def threaded(self):
+        """Use threads instead of processes when running multiple jobs."""
+        return getattr(self, '_mr_threaded', False)
+
+    @threaded.setter
+    def threaded(self, value):
+        self._mr_threaded = value
+
+    @property
+    def threaded_map(self):
+        """When running multiple jobs, use threads for the map phase instead
+        of processes.
+        """
+        return getattr(self, '_mr_threaded_map', self.threaded)
+
+    @threaded_map.setter
+    def threaded_map(self, value):
+        self._mr_threaded_map = value
+
+    @property
+    def threaded_reduce(self):
+        """When running multiple jobs, use threads for the reduce phase
+        instead of processes.
+        """
+        return getattr(self, '_mr_threaded_reduce', self.threaded)
+
+    @threaded_reduce.setter
+    def threaded_reduce(self, value):
+        self._mr_threaded_reduce = value
+
+    @property
+    def closed(self):
+        return getattr(self, '_mr_closed', False)
+
+    @closed.setter
+    def closed(self, value):
+        self._mr_closed = value
+
+    def init_map(self):
+        """Called immediately before the map phase."""
+        pass
+
+    def check_map_keys(self, keys):
+        """Provides an opportunity to check the first set of keys
+        produced by the map phase.
+        """
+        pass
+
+    def init_reduce(self):
+        """Called immediately before the reduce phase."""
+        pass
+
+    def check_reduce_keys(self, keys):
+        """Provides an opportunity to check the first set of keys
+        produced by the map phase.
+        """
+        pass
+
+    def close(self):
+        """Only automatically called only when using the MapReduce task as a
+        context manager.
+
+        Be sure to set ``self.closed = True`` when overriding this method,
+        otherwise a task can be used twice.  The assumption is that using an
+        instance of a task after  ``MapReduce.close()`` or
+        ``MapReduce.__exit__()`` is called will raise an exception.
+        """
+        self.closed = True
 
 
 # Required to make ``MemMapReduce._run_map()`` pickleable.
