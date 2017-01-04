@@ -193,4 +193,4 @@ if sys.version_info.major == 2:  # pragma: no cover
         else:
             return getattr, (m.im_self, m.im_func.func_name)
 
-    copy_reg.pickle(type(MemMapReduce._run_map), _reduce_method)
+    copy_reg.pickle(type(MapReduce._run_map), _reduce_method)

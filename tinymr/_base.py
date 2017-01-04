@@ -3,7 +3,7 @@
 
 from collections import defaultdict, deque
 import itertools as it
-from multiprocessing.dummy import Pool as DummyPool
+from multiprocessing.dummy import Pool as ThreadPool
 from multiprocessing.pool import Pool
 import operator as op
 
@@ -64,14 +64,14 @@ class _MRInternal(object):
     @property
     def _map_job_pool(self):
         if self.threaded_map:
-            return DummyPool(self.map_jobs)
+            return ThreadPool(self.map_jobs)
         else:
             return Pool(self.map_jobs)
 
     @property
     def _reduce_job_pool(self):
         if self.threaded_reduce:
-            return DummyPool(self.reduce_jobs)
+            return ThreadPool(self.reduce_jobs)
         else:
             return Pool(self.reduce_jobs)
 
