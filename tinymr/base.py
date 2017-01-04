@@ -66,30 +66,6 @@ class _MRInternal(object):
         else:
             return Pool(self.reduce_jobs)
 
-    # @property
-    # def _has_combiner(self):
-    #     """Attempt to figure out if the ``combiner()`` is implemented.
-    #
-    #     Returns
-    #     -------
-    #     bool
-    #     """
-    #
-    #     class _ProbeCombiner(object):
-    #         pass
-    #
-    #     # Probably implemented as a generator
-    #     try:
-    #         self.combiner(_ProbeCombiner, _ProbeCombiner)
-    #         return True
-    #     # Definitely not implemented
-    #     except NotImplementedError:
-    #         return False
-    #     # Might not be implemented or might not be broken.  Just assume it is
-    #     # implemented and let the combine phase fail if its not
-    #     except Exception:
-    #         return True
-
 
 class BaseMapReduce(_MRInternal):
 
@@ -214,33 +190,6 @@ class BaseMapReduce(_MRInternal):
     @closed.setter
     def closed(self, value):
         self._mr_closed = value
-
-    # @abc.abstractmethod
-    # def combiner(self, key, values):
-    #     """Mini reduce operation for the data from one map operation.
-    #
-    #     This method will be probed once with the call below to determine
-    #     if the combiner is implemented, so it would be unwise to modify the
-    #     class state from within the combiner, but this is a bad idea for a
-    #     bunch of other reasons so just don't do it.
-    #
-    #         ``combiner(_ProbeCombiner, _ProbeCombiner)``
-    #
-    #     This will create one of the following situations:
-    #
-    #         1. A ``NotImplementedError`` is raised - the combiner is
-    #            definitely not implemented.
-    #         2. Nothing - the combiner is probably implemented as a generator.
-    #         3. Any other exception is raised - the combiner is probably
-    #            implemented, but is either not a generator or not functional,
-    #            the former being more likely.
-    #
-    #     Ultimately the combine phase will fail with an exception if the
-    #     ``combiner()`` is not properly implemented.  We just need to know
-    #     upfront in order to determine the order of operations.
-    #     """
-    #
-    #     raise NotImplementedError
 
     def init_map(self):
         """Called immediately before the map phase."""
