@@ -1,8 +1,11 @@
-"""Experimental Pythonic MapReduce.
+"""In-memory MapReduce.
 
 Heavily inspired by Spotify's Luigi framework, specifically the Hadoop
 streaming jar interface.  github.com/Spotify/Luigi
 """
+
+
+from tinymr.mapreduce import MapReduce
 
 
 __version__ = '0.1'
@@ -12,7 +15,7 @@ __source__ = 'https://github.com/geowurster/tinymr'
 __license__ = '''
 New BSD License
 
-Copyright (c) 2015-2016, Kevin D. Wurster
+Copyright (c) 2015-2017, Kevin D. Wurster
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
