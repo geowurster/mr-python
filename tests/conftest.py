@@ -8,9 +8,6 @@ import os
 
 import pytest
 
-import tinymr as mr
-import tinymr.memory
-
 
 @pytest.fixture(scope='function')
 def tiny_text():

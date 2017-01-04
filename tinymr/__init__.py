@@ -5,6 +5,9 @@ streaming jar interface.  github.com/Spotify/Luigi
 """
 
 
+from tinymr.mapreduce import MapReduce
+
+
 __version__ = '0.1'
 __author__ = 'Kevin Wurster'
 __email__ = 'wursterk@gmail.com'

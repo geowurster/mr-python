@@ -7,7 +7,7 @@ import sys
 from tinymr._base import _MRInternal
 
 
-class MemMapReduce(_MRInternal):
+class MapReduce(_MRInternal):
 
     """In-memory MapReduce.  Subclassers must implement ``mapper()`` and
     ``reducer()``.

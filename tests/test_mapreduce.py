@@ -5,14 +5,14 @@ import itertools as it
 from multiprocessing.pool import ThreadPool
 import random
 
-from tinymr import errors
-from tinymr import memory
-from tinymr import tools
-
 import pytest
 
+from tinymr import MapReduce
+from tinymr.errors import KeyCountError, ClosedTaskError
+from tinymr.tools import single_key_output
 
-class _WordCount(memory.MemMapReduce):
+
+class _WordCount(MapReduce):
 
     """Define outside a function so other tests can subclass to test
     concurrency and parallelism.
@@ -25,7 +25,7 @@ class _WordCount(memory.MemMapReduce):
         yield key, sum(values)
 
     def output(self, items):
-        return tools.single_key_output(items)
+        return single_key_output(items)
 
 
 @pytest.fixture(scope='class')
@@ -66,7 +66,7 @@ def test_serial_sort():
         'key1 sort1 data1'
     ]
 
-    class GroupSort(memory.MemMapReduce):
+    class GroupSort(MapReduce):
 
         n_sort_keys = 1
 
@@ -97,7 +97,7 @@ def test_serial_no_sort():
         '1 2',
         '1 1']
 
-    class Grouper(memory.MemMapReduce):
+    class Grouper(MapReduce):
         
         def mapper(self, item):
             yield item.split()
@@ -110,7 +110,7 @@ def test_serial_no_sort():
     assert results == {'1': ('6', '5', '4', '3', '2', '1')}
 
 
-class _WCParallelSort(memory.MemMapReduce):
+class _WCParallelSort(MapReduce):
     """Define out here so we can pickle it in multiprocessing."""
 
     # Make sure everything gets sent to a single map + combine
@@ -149,7 +149,7 @@ def test_parallel_sort():
 
 def test_composite_partition_sort():
     """Composite key with sorting."""
-    class GroupSort(memory.MemMapReduce):
+    class GroupSort(MapReduce):
 
         n_partition_keys = 2
         n_sort_keys = 2
@@ -179,27 +179,27 @@ def test_composite_partition_sort():
 
 
 def test_MemMapReduce_exceptions():
-    class TooManyMapperKeys(memory.MemMapReduce):
+    class TooManyMapperKeys(MapReduce):
         def mapper(self, item):
             yield 1, 2, 3
 
     tmmk = TooManyMapperKeys()
-    with pytest.raises(errors.KeyCountError):
+    with pytest.raises(KeyCountError):
         tmmk([1])
 
-    class TooManyReducerKeys(memory.MemMapReduce):
+    class TooManyReducerKeys(MapReduce):
         def mapper(self, item):
             yield 1, 2
         def reducer(self, key, values):
             yield 1, 2, 3
 
     tmrk = TooManyReducerKeys()
-    with pytest.raises(errors.KeyCountError):
+    with pytest.raises(KeyCountError):
         tmrk([1])
 
 
 def test_run_map_method(wordcount):
-    """``tinymr.memory.MemMapReduce._run_map()`` isn't always called."""
+    """``tinymr.MapReduce._run_map()`` isn't always called."""
     wc = wordcount()
     expected = (
         ('key', 1),
@@ -286,11 +286,11 @@ def test_closed(wordcount):
     assert not wc.closed
     wc.close()
     assert wc.closed
-    with pytest.raises(errors.ClosedTaskError):
+    with pytest.raises(ClosedTaskError):
         wc('')
 
     with wordcount() as wc:
         assert not wc.closed
     assert wc.closed
-    with pytest.raises(errors.ClosedTaskError):
+    with pytest.raises(ClosedTaskError):
         wc('')
