@@ -12,6 +12,16 @@ from tinymr.errors import ClosedTaskError, KeyCountError
 from tinymr.tools import popitems
 
 
+class _SerialPool(object):
+
+    """Like ``multiprocessing.Pool()`` but without any of the overhead or
+    debugging complexities.
+    """
+
+    def imap_unordered(self, func, stream, chunksize):
+        return _compat.map(func, stream)
+
+
 class _MRInternal(object):
 
     """A lot of the helper methods on ``tinymr.MapReduce()`` are not relevant
@@ -22,9 +32,11 @@ class _MRInternal(object):
     """
 
     def _run_map(self, item):
+        """For use with ``multiprocessing.Pool.imap_unordered()``."""
         return tuple(self.mapper(item))
 
     def _run_reduce(self, kv):
+        """For use with ``multiprocessing.Pool.imap_unordered()``."""
         key, values = kv
         if self.n_sort_keys != 0:
             values = sorted(values, key=op.itemgetter(0))
@@ -33,6 +45,10 @@ class _MRInternal(object):
 
     @property
     def _ptn_key_idx(self):
+        """Used internally by the key grouper.  When dealing with multiple
+        partition keys a ``slice()`` has to be passed to
+        ``operator.itemgetter()``.
+        """
         if self.n_partition_keys == 1:
             return 0
         else:
@@ -40,6 +56,9 @@ class _MRInternal(object):
 
     @property
     def _sort_key_idx(self):
+        """Used internally by the key grouper.  When dealing with multiple
+        sort keys a ``slice()`` has to be passed to ``operator.itemgetter()``.
+        """
         # Ensure a lack of sort keys is properly handled down the line by
         # letting something fail spectacularly
         if self.n_sort_keys == 0:
@@ -56,6 +75,9 @@ class _MRInternal(object):
 
     @property
     def _map_key_grouper(self):
+        """Provides a function that re-groups keys from the map phase.  Makes
+        partitioning easier.
+        """
         getter_args = [self._ptn_key_idx, -1]
         if self.n_sort_keys > 0:
             getter_args.insert(1, self._sort_key_idx)
@@ -63,14 +85,20 @@ class _MRInternal(object):
 
     @property
     def _map_job_pool(self):
-        if self.threaded_map:
+        """Get the processing pool for the map phase."""
+        if self.map_jobs == 1:
+            return _SerialPool()
+        elif self.threaded_map:
             return ThreadPool(self.map_jobs)
         else:
             return Pool(self.map_jobs)
 
     @property
     def _reduce_job_pool(self):
-        if self.threaded_reduce:
+        """Get the processing pool for the reduce phase."""
+        if self.reduce_jobs == 1:
+            return _SerialPool()
+        elif self.threaded_reduce:
             return ThreadPool(self.reduce_jobs)
         else:
             return Pool(self.reduce_jobs)
@@ -83,20 +111,28 @@ class _MRInternal(object):
 
     def __call__(self, stream):
 
+        """Run the MapReduce task.
+
+        Parameters
+        ----------
+        stream : iter
+            Input data.
+
+        Yields
+        ------
+        tuple
+            A stream of ``(key, value)`` tuples.
+        """
+
         if self.closed:
             raise ClosedTaskError("Task is closed.")
 
         self.init_map()
 
-        if self.map_jobs == 1:
-            # Avoid the overhead (and debugging complexities) of
-            # parallelized jobs
-            results = _compat.map(self.mapper, stream)
-        else:
-            results = self._map_job_pool.imap_unordered(
-                self._run_map,
-                stream,
-                self.map_chunksize)
+        results = self._map_job_pool.imap_unordered(
+            self._run_map,
+            stream,
+            self.map_chunksize)
         results = it.chain.from_iterable(results)
 
         # Parallelized jobs can be difficult to debug so the first set of
@@ -135,11 +171,9 @@ class _MRInternal(object):
 
         # Reduce phase
         self.init_reduce()
-        if self.reduce_jobs == 1:
-            results = _compat.map(self._run_reduce, partitioned_items)
-        else:
-            results = self._reduce_job_pool.imap_unordered(
-                self._run_reduce, partitioned_items, self.reduce_chunksize)
+
+        results = self._reduce_job_pool.imap_unordered(
+            self._run_reduce, partitioned_items, self.reduce_chunksize)
         results = it.chain.from_iterable(results)
 
         # Same as with the map phase, issue a more useful error

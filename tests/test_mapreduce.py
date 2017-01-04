@@ -8,7 +8,6 @@ import random
 import pytest
 
 from tinymr import MapReduce
-from tinymr._base import _MRInternal
 from tinymr.errors import KeyCountError, ClosedTaskError
 from tinymr.tools import single_key_output
 
@@ -211,6 +210,7 @@ def test_run_map_method(wordcount):
 
 class _WCThreaded(_WordCount):
     threaded = True
+    jobs = 2
 
 
 def test_threaded(tiny_text, tiny_text_wc_output):

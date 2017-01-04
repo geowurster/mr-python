@@ -2,7 +2,7 @@
 tinymr
 ======
 
-Experimental Pythonic MapReduce / an exploration in parallelism.
+Experimental in-memory MapReduce.
 
 .. image:: https://travis-ci.org/geowurster/tinymr.svg?branch=master
     :target: https://travis-ci.org/geowurster/tinymr?branch=master
@@ -33,7 +33,7 @@ Here's a very fast and efficient word count example using Python's builtins:
     def builtin_mr(lines):
         words = map(op.methodcaller('lower'), lines)
         words = map(op.methodcaller('split'), words)
-        concatenated = it.chain.from_iterable(words)
+        words = it.chain.from_iterable(words)
         return Counter(concatenated)
 
     with open('LICENSE.txt') as f:
@@ -43,10 +43,10 @@ Currently the only MapReduce implementation is in-memory:
 
 .. code-block:: python
 
-    from tinymr.memory import MemMapReduce
+    from tinymr import MapReduce
     from tinymr.tools import single_key_output
 
-    class WordCount(MemMapReduce):
+    class WordCount(MapReduce):
 
         def mapper(self, item):
             return zip(item.lower().split(), it.repeat(1))
@@ -90,9 +90,9 @@ performance hit when they keys are transformed internally.
 
 .. code-block:: python
 
-    from tinymr.memory import MemMapReduce
+    from tinymr import MapReduce
 
-    class CompositeKey(MemMapReduce):
+    class CompositeKey(MapReduce):
 
         n_partition_keys = 2
         n_sort_keys = 2
@@ -117,17 +117,6 @@ required to do it at a reasonable speed is difficult to read and un-Pythonic.
 See the `Roadmap`_ for more info.
 
 
-Roadmap
--------
-
-Ideally ``tinymr`` will:
-
-1. Have MapReduce implementations that run in-memory and with intermediary disk I/O.
-2. Let the user decide if the map and/or reduce happens in-memory or on disk.  Key handling is such that the API is the same and a flags should suffice.
-3. Support a combine phase, likely entirely in-memory.
-4. Provide the tools necessary for optimizing tasks.
-
-
 Developing
 ==========
 
@@ -135,7 +124,7 @@ Developing
 
     $ git clone https://github.com/geowurster/tinymr.git
     $ cd tinymr
-    $ pip install -e .\[dev\]
+    $ pip install -e .\[all\]
     $ py.test --cov tinymr --cov-report term-missing
 
 
