@@ -52,18 +52,6 @@ class MapReduce(_MRInternal):
     def closed(self, value):
         self._mr_closed = value
 
-    def check_map_keys(self, keys):
-        """Provides an opportunity to check the first set of keys
-        produced by the map phase.
-        """
-        pass
-
-    def check_reduce_keys(self, keys):
-        """Provides an opportunity to check the first set of keys
-        produced by the map phase.
-        """
-        pass
-
     def close(self):
         """Only automatically called only when using the MapReduce task as a
         context manager.

@@ -97,7 +97,6 @@ class _MRInternal(object):
                     expected=expected_key_count,
                     actual=len(first),
                     keys=first))
-        self.check_map_keys(first)
 
         partitioned = defaultdict(deque)
         mapped = _compat.map(self._map_key_grouper, results)
@@ -122,7 +121,6 @@ class _MRInternal(object):
             raise KeyCountError(
                 "Expected 2 keys from the reduce phase, not {} - first "
                 "keys: {}".format(len(first), first))
-        self.check_reduce_keys(first)
 
         partitioned = defaultdict(deque)
         for k, v in results:

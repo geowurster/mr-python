@@ -198,29 +198,6 @@ def test_context_manager(wordcount, tiny_text, tiny_text_wc_output):
     assert wc.closed
 
 
-@pytest.mark.parametrize(
-    'method_name', ['check_map_keys', 'check_reduce_keys'])
-def test_MemMapReduce_check_keys(wordcount, tiny_text, method_name):
-
-    """Tests both ``MR.check_map_keys()`` and ``MR.check_reduce_keys()``."""
-
-    class WordCount(wordcount):
-
-        def checker(self, keys):
-            # Its possible something like a ValueError, KeyError, or subclass
-            # of KeyError will be raised accidentally if something breaks in
-            # the code around where this check actually happens, but a
-            # NameError is much less likely, and even less likely to go
-            # unnoticed.
-            raise NameError(keys)
-
-    wc = WordCount()
-    setattr(wc, method_name, wc.checker)
-
-    with pytest.raises(NameError):
-        wc(tiny_text)
-
-
 def test_closed(wordcount):
 
     """An instance of a task that has been closed should raise an exception
