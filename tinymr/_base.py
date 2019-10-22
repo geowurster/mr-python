@@ -4,10 +4,14 @@
 from collections import defaultdict, deque
 import itertools as it
 import operator as op
+import sys
 
-from tinymr import _compat
 from tinymr.errors import KeyCountError
 from tinymr.tools import popitems
+
+
+if sys.version_info.major == 2:
+    map = it.imap
 
 
 class _MRInternal(object):
@@ -24,7 +28,7 @@ class _MRInternal(object):
         key, values = kv
         if self.n_sort_keys != 0:
             values = sorted(values, key=op.itemgetter(0))
-            values = _compat.map(op.itemgetter(1), values)
+            values = map(op.itemgetter(1), values)
         return tuple(self.reducer(key, values))
 
     @property
@@ -77,7 +81,7 @@ class _MRInternal(object):
             A stream of ``(key, value)`` tuples.
         """
 
-        results = _compat.map(self.mapper, stream)
+        results = map(self.mapper, stream)
         results = it.chain.from_iterable(results)
 
         # Parallelized jobs can be difficult to debug so the first set of
@@ -96,7 +100,7 @@ class _MRInternal(object):
                     keys=first))
 
         partitioned = defaultdict(deque)
-        mapped = _compat.map(self._map_key_grouper, results)
+        mapped = map(self._map_key_grouper, results)
 
         # Only sort when required
         if self.n_sort_keys == 0:
@@ -108,7 +112,7 @@ class _MRInternal(object):
                 partitioned[ptn].append((srt, val))
                 partitioned_items = partitioned.items()
 
-        results = _compat.map(self._run_reduce, partitioned_items)
+        results = map(self._run_reduce, partitioned_items)
         results = it.chain.from_iterable(results)
 
         # Same as with the map phase, issue a more useful error
