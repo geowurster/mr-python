@@ -7,7 +7,7 @@ import random
 import pytest
 
 from tinymr import MapReduce
-from tinymr.errors import KeyCountError
+from tinymr.exceptions import KeyCountError
 
 
 class _WordCount(MapReduce):

@@ -9,7 +9,7 @@ from functools import partial
 import operator as op
 import sys
 
-from .errors import KeyCountError
+from .exceptions import KeyCountError
 
 
 class MapReduce(object):
