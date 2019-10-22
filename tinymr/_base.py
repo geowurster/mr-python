@@ -86,12 +86,7 @@ class _MRInternal(object):
     @property
     def _map_job_pool(self):
         """Get the processing pool for the map phase."""
-        if self.map_jobs == 1:
-            return _SerialPool()
-        elif self.threaded_map:
-            return ThreadPool(self.map_jobs)
-        else:
-            return Pool(self.map_jobs)
+        return _SerialPool()
 
     @property
     def _reduce_job_pool(self):

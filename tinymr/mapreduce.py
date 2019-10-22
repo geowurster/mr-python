@@ -45,14 +45,6 @@ class MapReduce(_MRInternal):
         self._mr_jobs = value
 
     @property
-    def map_jobs(self):
-        return getattr(self, '_mr_map_jobs', self.jobs)
-
-    @map_jobs.setter
-    def map_jobs(self, value):
-        self._mr_map_jobs = value
-
-    @property
     def reduce_jobs(self):
         return getattr(self, '_mr_reduce_jobs', self.jobs)
 
@@ -119,17 +111,6 @@ class MapReduce(_MRInternal):
     @threaded.setter
     def threaded(self, value):
         self._mr_threaded = value
-
-    @property
-    def threaded_map(self):
-        """When running multiple jobs, use threads for the map phase instead
-        of processes.
-        """
-        return getattr(self, '_mr_threaded_map', self.threaded)
-
-    @threaded_map.setter
-    def threaded_map(self, value):
-        self._mr_threaded_map = value
 
     @property
     def threaded_reduce(self):

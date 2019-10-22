@@ -2,7 +2,6 @@
 
 
 import itertools as it
-from multiprocessing.pool import ThreadPool
 import random
 
 import pytest
@@ -186,18 +185,6 @@ def test_run_map_method(wordcount):
         ('value', 1)
     )
     assert expected == wc._run_map('key value')
-
-
-class _WCThreaded(_WordCount):
-    threaded = True
-    jobs = 2
-
-
-def test_threaded(tiny_text, tiny_text_wc_output):
-    wc = _WCThreaded()
-    assert isinstance(wc._map_job_pool, ThreadPool)
-    assert isinstance(wc._reduce_job_pool, ThreadPool)
-    assert dict(wc(tiny_text.splitlines())) == dict(tiny_text_wc_output)
 
 
 def test_context_manager(wordcount, tiny_text, tiny_text_wc_output):
