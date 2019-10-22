@@ -150,18 +150,10 @@ class MapReduce(_MRInternal):
     def closed(self, value):
         self._mr_closed = value
 
-    def init_map(self):
-        """Called immediately before the map phase."""
-        pass
-
     def check_map_keys(self, keys):
         """Provides an opportunity to check the first set of keys
         produced by the map phase.
         """
-        pass
-
-    def init_reduce(self):
-        """Called immediately before the reduce phase."""
         pass
 
     def check_reduce_keys(self, keys):

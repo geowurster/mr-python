@@ -33,26 +33,6 @@ def wordcount():
     return _WordCount
 
 
-@pytest.mark.parametrize('method_name', ['init_map', 'init_reduce'])
-def test_init_phases(tiny_text, wordcount, method_name):
-
-    """Test ``init_map()`` and ``init_reduce()``."""
-
-    class WordCount(wordcount):
-        def __init__(self):
-            self.initialized = False
-
-        def initializer(self):
-            self.initialized = True
-
-    wc = WordCount()
-    setattr(wc, method_name, wc.initializer)
-
-    assert not wc.initialized
-    tuple(wc(tiny_text.splitlines()))
-    assert wc.initialized
-
-
 def test_serial_sort():
 
     """Make sure enabling sorting actually sorts."""

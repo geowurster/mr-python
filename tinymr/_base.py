@@ -127,8 +127,6 @@ class _MRInternal(object):
         if self.closed:
             raise ClosedTaskError("Task is closed.")
 
-        self.init_map()
-
         results = self._map_job_pool.imap_unordered(
             self._run_map,
             stream,
@@ -168,9 +166,6 @@ class _MRInternal(object):
                     partitioned.items())
             else:
                 partitioned_items = partitioned.items()
-
-        # Reduce phase
-        self.init_reduce()
 
         results = self._reduce_job_pool.imap_unordered(
             self._run_reduce, partitioned_items, self.reduce_chunksize)
