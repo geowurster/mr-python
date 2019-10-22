@@ -180,16 +180,6 @@ def test_MemMapReduce_exceptions():
         tmrk([1])
 
 
-def test_run_map_method(wordcount):
-    """``tinymr.MapReduce._run_map()`` isn't always called."""
-    wc = wordcount()
-    expected = (
-        ('key', 1),
-        ('value', 1)
-    )
-    assert expected == wc._run_map('key value')
-
-
 def test_context_manager(wordcount, tiny_text, tiny_text_wc_output):
 
     """Test context manager and ensure default implementation exists."""

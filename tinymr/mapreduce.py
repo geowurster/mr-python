@@ -2,7 +2,6 @@
 
 
 import abc
-import sys
 
 from tinymr._base import _MRInternal
 
@@ -75,17 +74,3 @@ class MapReduce(_MRInternal):
         ``MapReduce.__exit__()`` is called will raise an exception.
         """
         self.closed = True
-
-
-# Required to make ``MemMapReduce._run_map()`` pickleable.
-if sys.version_info.major == 2:  # pragma: no cover
-
-    import copy_reg
-
-    def _reduce_method(m):
-        if m.im_self is None:
-            return getattr, (m.im_class, m.im_func.func_name)
-        else:
-            return getattr, (m.im_self, m.im_func.func_name)
-
-    copy_reg.pickle(type(MapReduce._run_map), _reduce_method)

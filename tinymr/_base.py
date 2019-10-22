@@ -10,16 +10,6 @@ from tinymr.errors import ClosedTaskError, KeyCountError
 from tinymr.tools import popitems
 
 
-class _SerialPool(object):
-
-    """Like ``multiprocessing.Pool()`` but without any of the overhead or
-    debugging complexities.
-    """
-
-    def imap_unordered(self, func, stream, chunksize=1):
-        return _compat.map(func, stream)
-
-
 class _MRInternal(object):
 
     """A lot of the helper methods on ``tinymr.MapReduce()`` are not relevant
@@ -28,10 +18,6 @@ class _MRInternal(object):
     This class cannot be directly subclassed.  Use
     ``tinymr.mapreduce.MapReduce()``.
     """
-
-    def _run_map(self, item):
-        """For use with ``multiprocessing.Pool.imap_unordered()``."""
-        return tuple(self.mapper(item))
 
     def _run_reduce(self, kv):
         """For use with ``multiprocessing.Pool.imap_unordered()``."""
@@ -70,16 +56,6 @@ class _MRInternal(object):
             getter_args.insert(1, self._sort_key_idx)
         return op.itemgetter(*getter_args)
 
-    @property
-    def _map_job_pool(self):
-        """Get the processing pool for the map phase."""
-        return _SerialPool()
-
-    @property
-    def _reduce_job_pool(self):
-        """Get the processing pool for the reduce phase."""
-        return _SerialPool()
-
     def __enter__(self):
         return self
 
@@ -104,7 +80,7 @@ class _MRInternal(object):
         if self.closed:
             raise ClosedTaskError("Task is closed.")
 
-        results = self._map_job_pool.imap_unordered(self._run_map, stream)
+        results = _compat.map(self.mapper, stream)
         results = it.chain.from_iterable(results)
 
         # Parallelized jobs can be difficult to debug so the first set of
@@ -136,8 +112,7 @@ class _MRInternal(object):
                 partitioned[ptn].append((srt, val))
                 partitioned_items = partitioned.items()
 
-        results = self._reduce_job_pool.imap_unordered(
-            self._run_reduce, partitioned_items)
+        results = _compat.map(self._run_reduce, partitioned_items)
         results = it.chain.from_iterable(results)
 
         # Same as with the map phase, issue a more useful error
