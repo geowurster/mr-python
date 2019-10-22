@@ -216,7 +216,6 @@ def test_MemMapReduce_properties(wordcount):
 
     wc = WordCount()
     assert wc.chunksize == 2
-    assert wc.map_chunksize == 2
     assert wc.reduce_chunksize == 2
 
 

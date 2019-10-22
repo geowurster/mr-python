@@ -38,25 +38,14 @@ class MapReduce(_MRInternal):
 
     @property
     def chunksize(self):
-        """Default chunksize for map and reduce phases.  See ``map_chunksize``
-        and ``reduce_chunksize``.
+        """Default chunksize for map and reduce phases. See
+        ``reduce_chunksize``.
         """
         return getattr(self, '_mr_chunksize', 1)
 
     @chunksize.setter
     def chunksize(self, value):
         self._mr_chunksize = value
-
-    @property
-    def map_chunksize(self):
-        """Pass items in groups of N to each map job when running with
-        running with multiple jobs.
-        """
-        return getattr(self, '_mr_map_chunksize', self.chunksize)
-
-    @map_chunksize.setter
-    def map_chunksize(self, value):
-        self._mr_map_chunksize = value
 
     @property
     def reduce_chunksize(self):

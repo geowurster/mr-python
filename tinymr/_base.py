@@ -16,7 +16,7 @@ class _SerialPool(object):
     debugging complexities.
     """
 
-    def imap_unordered(self, func, stream, chunksize):
+    def imap_unordered(self, func, stream, chunksize=1):
         return _compat.map(func, stream)
 
 
@@ -115,10 +115,7 @@ class _MRInternal(object):
         if self.closed:
             raise ClosedTaskError("Task is closed.")
 
-        results = self._map_job_pool.imap_unordered(
-            self._run_map,
-            stream,
-            self.map_chunksize)
+        results = self._map_job_pool.imap_unordered(self._run_map, stream)
         results = it.chain.from_iterable(results)
 
         # Parallelized jobs can be difficult to debug so the first set of
