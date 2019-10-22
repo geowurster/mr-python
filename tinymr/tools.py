@@ -3,8 +3,6 @@
 
 import itertools as it
 
-from tinymr import _compat
-
 
 def slicer(iterable, chunksize):
 
@@ -40,35 +38,6 @@ def slicer(iterable, chunksize):
             yield v
         else:
             break
-
-
-def mapkey(key, values):
-
-    """
-    Given a key and a series of values, create a series of `(key, value)`
-    tuples.
-
-    Example:
-
-        >>> for pair in mapkey('key', range(5)):
-        ...     print(pair)
-        ('key', 0)
-        ('key', 1)
-        ('key', 2)
-        ('key', 3)
-        ('key', 4)
-
-    Parameters
-    ----------
-    key : object
-        Object to use as the first element of each output tuples.
-
-    Returns
-    -------
-    iter
-    """
-
-    return _compat.zip(it.repeat(key), values)
 
 
 def popitems(dictionary):

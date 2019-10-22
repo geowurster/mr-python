@@ -38,15 +38,6 @@ def _func(v):
     return v + 1
 
 
-def test_mapkey():
-
-    actual = tools.mapkey('key', range(5))
-    expected = [('key', 0), ('key', 1), ('key', 2), ('key', 3), ('key', 4)]
-
-    assert not isinstance(actual, (list, tuple))  # Make sure we get an iterator
-    assert list(actual) == expected
-
-
 def test_popitems():
 
     d = {k: str(k) for k in range(10)}
