@@ -20,10 +20,7 @@ class _WordCount(MapReduce):
         return zip(item.lower().split(), it.repeat(1))
 
     def reducer(self, key, values):
-        yield key, sum(values)
-
-    def output(self, items):
-        return single_key_output(items)
+        return key, sum(values)
 
 
 @pytest.fixture(scope='class')

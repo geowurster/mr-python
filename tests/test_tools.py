@@ -27,33 +27,3 @@ def test_slicer_odd():
     assert next(it) == (4, )
     with pytest.raises(StopIteration):
         next(it)
-
-
-def _func(v):
-
-    """
-    Can't pickle local functions.
-    """
-
-    return v + 1
-
-
-def test_popitems():
-
-    d = {k: str(k) for k in range(10)}
-
-    for k, v in tools.popitems(d):
-        assert k < 10
-        assert v == str(k)
-    assert not d
-
-
-def test_single_key_output():
-
-    data = {
-        'key1': ('v1',),
-        'key2': ('v2',),
-        'key3': ('v3',)
-    }
-    expected = {k: next(iter(v)) for k, v in data.items()}
-    assert dict(tools.single_key_output(data.items())) == expected
