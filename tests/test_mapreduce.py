@@ -205,20 +205,6 @@ def test_context_manager(wordcount, tiny_text, tiny_text_wc_output):
     assert wc.closed
 
 
-def test_MemMapReduce_properties(wordcount):
-
-    wc = wordcount()
-    assert wc.chunksize == 1
-    assert wc.close() is None
-
-    class WordCount(wordcount):
-        chunksize = 2
-
-    wc = WordCount()
-    assert wc.chunksize == 2
-    assert wc.reduce_chunksize == 2
-
-
 @pytest.mark.parametrize(
     'method_name', ['check_map_keys', 'check_reduce_keys'])
 def test_MemMapReduce_check_keys(wordcount, tiny_text, method_name):

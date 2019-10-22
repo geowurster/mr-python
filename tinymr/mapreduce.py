@@ -37,28 +37,6 @@ class MapReduce(_MRInternal):
         return items
 
     @property
-    def chunksize(self):
-        """Default chunksize for map and reduce phases. See
-        ``reduce_chunksize``.
-        """
-        return getattr(self, '_mr_chunksize', 1)
-
-    @chunksize.setter
-    def chunksize(self, value):
-        self._mr_chunksize = value
-
-    @property
-    def reduce_chunksize(self):
-        """Pass items in groups of N to each reduce job when running with
-        multiple jobs.
-        """
-        return getattr(self, '_mr_reduce_chunksize', self.chunksize)
-
-    @reduce_chunksize.setter
-    def reduce_chunksize(self, value):
-        self._mr_reduce_chunksize = value
-
-    @property
     def n_partition_keys(self):
         """Grab the first N keys for partitioning."""
         return getattr(self, '_mr_n_partition_keys', 1)

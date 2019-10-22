@@ -153,7 +153,7 @@ class _MRInternal(object):
                 partitioned_items = partitioned.items()
 
         results = self._reduce_job_pool.imap_unordered(
-            self._run_reduce, partitioned_items, self.reduce_chunksize)
+            self._run_reduce, partitioned_items)
         results = it.chain.from_iterable(results)
 
         # Same as with the map phase, issue a more useful error
