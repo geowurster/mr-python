@@ -4,9 +4,11 @@ Heavily inspired by Spotify's Luigi framework, specifically the Hadoop
 streaming jar interface.  github.com/Spotify/Luigi
 """
 
+from .mapreduce import MapReduce
+from .tools import slicer
 
-from tinymr.mapreduce import MapReduce
 
+__all__ = ["MapReduce", "slicer"]
 
 __version__ = '0.1'
 __author__ = 'Kevin Wurster'
