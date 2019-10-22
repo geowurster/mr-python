@@ -64,28 +64,6 @@ def popitems(dictionary):
             break
 
 
-def poplist(l):
-
-    """Like ``list.pop(0)`` but iterates over all items in the input list and
-    emptying it in the process.  Iterates from beginning to end.
-
-    Parameters
-    ----------
-    l : list
-        ``list()`` to process.
-
-    Yields
-    ------
-    object
-    """
-
-    while True:
-        try:
-            yield l.pop(0)
-        except IndexError:
-            break
-
-
 def single_key_output(items):
 
     """Override ``MapReduce.output()`` with a custom method that passes

@@ -48,14 +48,6 @@ def test_popitems():
     assert not d
 
 
-def test_poplist():
-    l = list(range(10))
-    for v in tools.poplist(l):
-        assert v < 10
-        assert v not in l
-    assert not l
-
-
 def test_single_key_output():
 
     data = {
