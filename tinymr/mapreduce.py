@@ -44,21 +44,7 @@ class MapReduce(_MRInternal):
     def n_sort_keys(self, value):
         self._mr_n_sort_keys = value
 
-    @property
-    def closed(self):
-        return getattr(self, '_mr_closed', False)
-
-    @closed.setter
-    def closed(self, value):
-        self._mr_closed = value
-
     def close(self):
         """Only automatically called only when using the MapReduce task as a
         context manager.
-
-        Be sure to set ``self.closed = True`` when overriding this method,
-        otherwise a task can be used twice.  The assumption is that using an
-        instance of a task after  ``MapReduce.close()`` or
-        ``MapReduce.__exit__()`` is called will raise an exception.
         """
-        self.closed = True

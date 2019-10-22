@@ -7,7 +7,7 @@ import random
 import pytest
 
 from tinymr import MapReduce
-from tinymr.errors import KeyCountError, ClosedTaskError
+from tinymr.errors import KeyCountError
 from tinymr.tools import single_key_output
 
 
@@ -182,8 +182,6 @@ def test_MemMapReduce_exceptions():
 
 def test_context_manager(wordcount, tiny_text, tiny_text_wc_output):
 
-    """Test context manager and ensure default implementation exists."""
-
     class WordCount(wordcount):
 
         def __init__(self):
@@ -194,28 +192,8 @@ def test_context_manager(wordcount, tiny_text, tiny_text_wc_output):
 
     with WordCount() as wc:
         assert not wc.closed
-        assert dict(tiny_text_wc_output) == dict(wc(tiny_text.splitlines()))
     assert wc.closed
 
-
-def test_closed(wordcount):
-
-    """An instance of a task that has been closed should raise an exception
-    if it is used twice.
-    """
-
-    wc = wordcount()
-    assert not wc.closed
-    wc.close()
-    assert wc.closed
-    with pytest.raises(ClosedTaskError):
-        wc('')
-
-    with wordcount() as wc:
-        assert not wc.closed
-    assert wc.closed
-    with pytest.raises(ClosedTaskError):
-        wc('')
 
 
 def test_not_implemented_methods():

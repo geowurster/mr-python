@@ -6,7 +6,7 @@ import itertools as it
 import operator as op
 
 from tinymr import _compat
-from tinymr.errors import ClosedTaskError, KeyCountError
+from tinymr.errors import KeyCountError
 from tinymr.tools import popitems
 
 
@@ -76,9 +76,6 @@ class _MRInternal(object):
         tuple
             A stream of ``(key, value)`` tuples.
         """
-
-        if self.closed:
-            raise ClosedTaskError("Task is closed.")
 
         results = _compat.map(self.mapper, stream)
         results = it.chain.from_iterable(results)
