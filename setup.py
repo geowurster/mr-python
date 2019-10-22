@@ -66,8 +66,8 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Topic :: Text Processing',
         'Topic :: Software Development :: Libraries',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: Implementation :: PyPy',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3'
     ],
     description="Pythonic in-memory MapReduce.",
     include_package_data=True,
