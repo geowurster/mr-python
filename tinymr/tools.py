@@ -41,7 +41,7 @@ def slicer(iterable, chunksize):
         if v:
             yield v
         else:
-            raise StopIteration
+            break
 
 
 def mapkey(key, values):
@@ -181,7 +181,7 @@ def popitems(dictionary):
         try:
             yield dictionary.popitem()
         except KeyError:
-            raise StopIteration
+            break
 
 
 def poplist(l):
@@ -203,7 +203,7 @@ def poplist(l):
         try:
             yield l.pop(0)
         except IndexError:
-            raise StopIteration
+            break
 
 
 def single_key_output(items):
