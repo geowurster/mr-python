@@ -49,14 +49,12 @@ Currently the only MapReduce implementation is in-memory:
     class WordCount(MapReduce):
 
         def mapper(self, item):
-            return zip(item.lower().split(), it.repeat(1))
+            line = item.lower().strip()
+            for word in line.split():
+                yield word, 1
 
         def reducer(self, key, values):
             yield key, sum(values)
-
-        def output(self, items):
-            """See ``single_key_output()``'s docstring for more info."""
-            return single_key_output(items)
 
     with open('LICENSE.txt') as f:
         wc = WC()
@@ -94,10 +92,8 @@ performance hit when they keys are transformed internally.
 
     class CompositeKey(MapReduce):
 
-        n_sort_keys = 2
-
         def mapper(self, item):
-            yield (partition1, partition2), sort1, sort2, data
+            yield (partition1, partition2), (sort1, sort2), data
 
 
 Combine Phase

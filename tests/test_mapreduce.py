@@ -8,7 +8,6 @@ import pytest
 
 from tinymr import MapReduce
 from tinymr.errors import KeyCountError
-from tinymr.tools import single_key_output
 
 
 class _WordCount(MapReduce):
@@ -47,21 +46,20 @@ def test_serial_sort():
 
     class GroupSort(MapReduce):
 
-        n_sort_keys = 1
-
         def mapper(self, item):
             yield item.split()
 
         def reducer(self, key, values):
-            return zip(it.repeat(key), values)
+            for v in values:
+                yield key, v
 
-    gs = GroupSort()
-    results = {k: tuple(v) for k, v in gs(text)}
+    with GroupSort() as gs:
+        results = gs(text)
     assert len(results) == 3
     assert results == {
-        'key1': ('data1', 'data2'),
-        'key2': ('data1', 'data2'),
-        'key3': ('data1', 'data2')}
+        'key1': ['data1', 'data2'],
+        'key2': ['data1', 'data2'],
+        'key3': ['data1', 'data2']}
 
 
 def test_serial_no_sort():
@@ -82,11 +80,12 @@ def test_serial_no_sort():
             yield item.split()
 
         def reducer(self, key, values):
-            return zip(it.repeat(key), values)
+            for v in values:
+                yield key, v
 
-    g = Grouper()
-    results = {k: tuple(v) for k, v in g(text)}
-    assert results == {'1': ('6', '5', '4', '3', '2', '1')}
+    with Grouper() as g:
+        results = g(text)
+    assert results == {'1': ['6', '5', '4', '3', '2', '1']}
 
 
 class _WCParallelSort(MapReduce):
@@ -96,13 +95,12 @@ class _WCParallelSort(MapReduce):
     chunksize = 10
     jobs = 4
 
-    n_sort_keys = 1
-
     def mapper(self, item):
         yield item.split()
 
     def reducer(self, key, values):
-        return zip(it.repeat(key), values)
+        for v in values:
+            yield key, v
 
 
 def test_parallel_sort():
@@ -118,8 +116,9 @@ def test_parallel_sort():
         'key1 sort1 data1'
     ]
 
-    wc = _WCParallelSort()
-    results = {k: sorted(v) for k, v in wc(text)}
+    with _WCParallelSort() as wc:
+        results = wc(text)
+
     assert results == {
         'key1': ['data1', 'data2'],
         'key2': ['data1', 'data2'],
@@ -130,17 +129,13 @@ def test_composite_partition_sort():
     """Composite key with sorting."""
     class GroupSort(MapReduce):
 
-        n_sort_keys = 2
-
         def mapper(self, item):
-            # Use first two elements for partitioning
-            item = list(item)
-            k1 = item.pop(0)
-            k2 = item.pop(0)
-            yield [(k1, k2)] + item
+            k1, k2, k3, k4, k5 = item
+            yield (k1, k2), (k3, k4), k5
 
         def reducer(self, key, values):
-            return zip(it.repeat(key), values)
+            for v in values:
+                yield key, v
 
     data = [
         ('p1', 'p2', 's1', 's2', 'd1'),
@@ -151,33 +146,38 @@ def test_composite_partition_sort():
         ('p5', 'p6', 's3', 's4', 'd2')]
     random.shuffle(data)
 
-    gs = GroupSort()
-    results = {k: tuple(v) for k, v in gs(data)}
+    with GroupSort() as gs:
+        results = gs(data)
+
     assert results == {
-        ('p1', 'p2'): ('d1', 'd2'),
-        ('p3', 'p4'): ('d1', 'd2'),
-        ('p5', 'p6'): ('d1', 'd2'),
+        ('p1', 'p2'): ['d1', 'd2'],
+        ('p3', 'p4'): ['d1', 'd2'],
+        ('p5', 'p6'): ['d1', 'd2'],
     }
 
 
 def test_MemMapReduce_exceptions():
-    class TooManyMapperKeys(MapReduce):
-        def mapper(self, item):
-            yield 1, 2, 3
 
-    tmmk = TooManyMapperKeys()
-    with pytest.raises(KeyCountError):
-        tmmk([1])
+    class TooManyMapperKeys(MapReduce):
+
+        def mapper(self, item):
+            yield 1, 2, 3, 4
+
+    with TooManyMapperKeys() as tmmk:
+        with pytest.raises(KeyCountError):
+            tmmk([1])
 
     class TooManyReducerKeys(MapReduce):
+
         def mapper(self, item):
             yield 1, 2
-        def reducer(self, key, values):
-            yield 1, 2, 3
 
-    tmrk = TooManyReducerKeys()
-    with pytest.raises(KeyCountError):
-        tmrk([1])
+        def reducer(self, key, values):
+            yield 1, 2, 3, 4
+
+    with TooManyReducerKeys() as tmrk:
+        with pytest.raises(KeyCountError):
+            tmrk([1])
 
 
 def test_context_manager(wordcount, tiny_text, tiny_text_wc_output):
@@ -193,70 +193,3 @@ def test_context_manager(wordcount, tiny_text, tiny_text_wc_output):
     with WordCount() as wc:
         assert not wc.closed
     assert wc.closed
-
-
-
-def test_not_implemented_methods():
-
-    mr = MapReduce()
-    with pytest.raises(NotImplementedError):
-        mr.mapper(None)
-    with pytest.raises(NotImplementedError):
-        mr.reducer(None, None)
-
-
-def test_default_methods():
-
-    mr = MapReduce()
-
-    expected = [(i, tuple(range(i))) for i in range(1, 10)]
-    assert list(mr.output(expected)) == expected
-
-    assert mr._sort_key_idx is None
-
-    with pytest.raises(NotImplementedError):
-        mr([None])
-
-
-def test_set_properties():
-
-    """All of the MapReduce level configuration happens in properties, but
-    since the entire ``MapReduce.__init__()`` is handed over to the user,
-    each of these properties needs to have a getter _and_ setter.
-    """
-
-    # Collect all the public properties
-    props = []
-    for attr in dir(MapReduce):
-        obj = getattr(MapReduce, attr)
-        if not attr.startswith('_') and isinstance(obj, property):
-            props.append(attr)
-
-    mr = MapReduce()
-    for p in props:
-
-        # Make sure the attribute isn't already set for some reason but
-        # cache the value so it can be replaced once this property is tested
-        original = getattr(mr, p)
-        assert original != 'whatever', \
-            "Property '{}' has already been set?".format(p)
-
-        # This calls the setter
-        try:
-            setattr(mr, p, 'whatever')
-
-        # The default error message isn't very helpful for debugging tests.
-        except AttributeError:
-            raise AttributeError(
-                "Can't set property '{}' on '{}'".format(
-                    p, mr.__class__.__name__))
-
-        assert getattr(mr, p) == 'whatever'
-
-        # Some properties default to other properties, for instance 'map_jobs'
-        # and 'reduce_jobs' both default to 'jobs'.  If 'jobs' is tested
-        # first then 'map_jobs' and 'reduce_jobs' will inherit its new
-        # value.  By explicitly resetting the property's value to the
-        # original state this test is a little more sensitive to human
-        # errors, like if 'jobs.setter' actually points to 'chunksize'.
-        setattr(mr, p, original)
