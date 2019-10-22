@@ -209,7 +209,6 @@ def test_MemMapReduce_properties(wordcount):
 
     wc = wordcount()
     assert wc.chunksize == 1
-    assert not wc.threaded
     assert wc.close() is None
 
     class WordCount(wordcount):

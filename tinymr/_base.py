@@ -3,8 +3,6 @@
 
 from collections import defaultdict, deque
 import itertools as it
-from multiprocessing.dummy import Pool as ThreadPool
-from multiprocessing.pool import Pool
 import operator as op
 
 from tinymr import _compat
@@ -91,12 +89,7 @@ class _MRInternal(object):
     @property
     def _reduce_job_pool(self):
         """Get the processing pool for the reduce phase."""
-        if self.reduce_jobs == 1:
-            return _SerialPool()
-        elif self.threaded_reduce:
-            return ThreadPool(self.reduce_jobs)
-        else:
-            return Pool(self.reduce_jobs)
+        return _SerialPool()
 
     def __enter__(self):
         return self

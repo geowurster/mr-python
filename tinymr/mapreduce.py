@@ -37,22 +37,6 @@ class MapReduce(_MRInternal):
         return items
 
     @property
-    def jobs(self):
-        return getattr(self, '_mr_jobs', 1)
-
-    @jobs.setter
-    def jobs(self, value):
-        self._mr_jobs = value
-
-    @property
-    def reduce_jobs(self):
-        return getattr(self, '_mr_reduce_jobs', self.jobs)
-
-    @reduce_jobs.setter
-    def reduce_jobs(self, value):
-        self._mr_reduce_jobs = value
-
-    @property
     def chunksize(self):
         """Default chunksize for map and reduce phases.  See ``map_chunksize``
         and ``reduce_chunksize``.
@@ -102,26 +86,6 @@ class MapReduce(_MRInternal):
     @n_sort_keys.setter
     def n_sort_keys(self, value):
         self._mr_n_sort_keys = value
-
-    @property
-    def threaded(self):
-        """Use threads instead of processes when running multiple jobs."""
-        return getattr(self, '_mr_threaded', False)
-
-    @threaded.setter
-    def threaded(self, value):
-        self._mr_threaded = value
-
-    @property
-    def threaded_reduce(self):
-        """When running multiple jobs, use threads for the reduce phase
-        instead of processes.
-        """
-        return getattr(self, '_mr_threaded_reduce', self.threaded)
-
-    @threaded_reduce.setter
-    def threaded_reduce(self, value):
-        self._mr_threaded_reduce = value
 
     @property
     def closed(self):
