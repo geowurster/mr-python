@@ -94,11 +94,10 @@ performance hit when they keys are transformed internally.
 
     class CompositeKey(MapReduce):
 
-        n_partition_keys = 2
         n_sort_keys = 2
 
         def mapper(self, item):
-            yield partition1, partition2, sort1, sort2, data
+            yield (partition1, partition2), sort1, sort2, data
 
 
 Combine Phase

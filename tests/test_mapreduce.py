@@ -130,11 +130,14 @@ def test_composite_partition_sort():
     """Composite key with sorting."""
     class GroupSort(MapReduce):
 
-        n_partition_keys = 2
         n_sort_keys = 2
 
         def mapper(self, item):
-            yield item
+            # Use first two elements for partitioning
+            item = list(item)
+            k1 = item.pop(0)
+            k2 = item.pop(0)
+            yield [(k1, k2)] + item
 
         def reducer(self, key, values):
             return zip(it.repeat(key), values)
@@ -151,9 +154,9 @@ def test_composite_partition_sort():
     gs = GroupSort()
     results = {k: tuple(v) for k, v in gs(data)}
     assert results == {
-        'p1': ('d1', 'd2'),
-        'p3': ('d1', 'd2'),
-        'p5': ('d1', 'd2'),
+        ('p1', 'p2'): ('d1', 'd2'),
+        ('p3', 'p4'): ('d1', 'd2'),
+        ('p5', 'p6'): ('d1', 'd2'),
     }
 
 

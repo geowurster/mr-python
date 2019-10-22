@@ -37,15 +37,6 @@ class MapReduce(_MRInternal):
         return items
 
     @property
-    def n_partition_keys(self):
-        """Grab the first N keys for partitioning."""
-        return getattr(self, '_mr_n_partition_keys', 1)
-
-    @n_partition_keys.setter
-    def n_partition_keys(self, value):
-        self._mr_n_partition_keys = value
-
-    @property
     def n_sort_keys(self):
         """Grab N keys after the partition keys when sorting."""
         return getattr(self, '_mr_n_sort_keys', 0)

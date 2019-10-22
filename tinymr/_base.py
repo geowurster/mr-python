@@ -42,17 +42,6 @@ class _MRInternal(object):
         return tuple(self.reducer(key, values))
 
     @property
-    def _ptn_key_idx(self):
-        """Used internally by the key grouper.  When dealing with multiple
-        partition keys a ``slice()`` has to be passed to
-        ``operator.itemgetter()``.
-        """
-        if self.n_partition_keys == 1:
-            return 0
-        else:
-            return slice(0, self.n_partition_keys)
-
-    @property
     def _sort_key_idx(self):
         """Used internally by the key grouper.  When dealing with multiple
         sort keys a ``slice()`` has to be passed to ``operator.itemgetter()``.
@@ -65,9 +54,9 @@ class _MRInternal(object):
             # Given keys like: ('partition', 'sort', 'data')
             # the number of partition keys equals the index of the single
             # sort key
-            return self.n_partition_keys
+            return 1
         else:
-            start = self.n_partition_keys
+            start = 1
             stop = start + self.n_sort_keys
             return slice(start, stop)
 
@@ -76,7 +65,7 @@ class _MRInternal(object):
         """Provides a function that re-groups keys from the map phase.  Makes
         partitioning easier.
         """
-        getter_args = [self._ptn_key_idx, -1]
+        getter_args = [0, -1]
         if self.n_sort_keys > 0:
             getter_args.insert(1, self._sort_key_idx)
         return op.itemgetter(*getter_args)
@@ -124,7 +113,7 @@ class _MRInternal(object):
         # when a job fails.
         first = next(results)
         results = it.chain([first], results)
-        expected_key_count = self.n_partition_keys + self.n_sort_keys + 1
+        expected_key_count = 1 + self.n_sort_keys + 1
         if len(first) != expected_key_count:
             raise KeyCountError(
                 "Expected {expected} keys from the map phase, not {actual} - "
@@ -145,11 +134,6 @@ class _MRInternal(object):
         else:
             for ptn, srt, val in mapped:
                 partitioned[ptn].append((srt, val))
-            if self.n_partition_keys > 1:
-                partitioned_items = it.starmap(
-                    lambda _ptn, srt_val: (_ptn[0], srt_val),
-                    partitioned.items())
-            else:
                 partitioned_items = partitioned.items()
 
         results = self._reduce_job_pool.imap_unordered(
