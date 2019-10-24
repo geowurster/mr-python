@@ -9,7 +9,7 @@ from functools import partial
 import operator as op
 import sys
 
-from .exceptions import KeyCountError
+from .exceptions import ElementCountError
 
 
 class MapReduce(object):
@@ -62,7 +62,7 @@ class MapReduce(object):
         sequence = it.chain([first], sequence)
 
         if len(first) not in (2, 3):
-            raise KeyCountError(
+            raise ElementCountError(
                 "Expected data of size 2 or 3, not {}. Example: {}".format(
                     len(first), first))
 

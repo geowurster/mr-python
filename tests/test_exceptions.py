@@ -1,7 +1,7 @@
 import pytest
 
 from tinymr import MapReduce
-from tinymr.exceptions import KeyCountError
+from tinymr.exceptions import ElementCountError
 
 
 @pytest.mark.parametrize("bad", ((1,), (1, 2, 3, 4)))
@@ -16,7 +16,7 @@ def test_malformed_mapper(bad):
             return key, values
 
     wc = WordCount()
-    with pytest.raises(KeyCountError):
+    with pytest.raises(ElementCountError):
         wc([None])
 
 
@@ -32,5 +32,5 @@ def test_malformed_reducer(bad):
             return bad
 
     wc = WordCount()
-    with pytest.raises(KeyCountError):
+    with pytest.raises(ElementCountError):
         wc([None])

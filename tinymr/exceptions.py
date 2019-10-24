@@ -1,6 +1,7 @@
 """Custom exceptions."""
 
 
-class KeyCountError(Exception):
+class ElementCountError(Exception):
 
-    """The number of expected keys does not match the number of actual keys."""
+    """The number of expected elements does not match the number of actual
+     elements."""
