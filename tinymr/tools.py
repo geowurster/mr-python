@@ -4,6 +4,9 @@
 import itertools as it
 
 
+__all__ = ["slicer"]
+
+
 def slicer(iterable, chunksize):
 
     """

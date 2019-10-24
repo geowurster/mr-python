@@ -12,6 +12,9 @@ import sys
 from .exceptions import ElementCountError
 
 
+__all__ = ["MapReduce"]
+
+
 class MapReduce(object):
 
     """"""
