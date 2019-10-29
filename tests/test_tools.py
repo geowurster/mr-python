@@ -7,7 +7,7 @@ from tinymr import tools
 
 
 def test_slicer_even():
-    it = tools.slicer(range(100), 10)
+    it = tools.slicer(iter(range(100)), 10)
     for idx, actual in enumerate(it):
 
         assert isinstance(actual, tuple)
@@ -21,9 +21,14 @@ def test_slicer_even():
 
 def test_slicer_odd():
 
-    it = tools.slicer(range(5), 2)
+    it = tools.slicer(iter(range(5)), 2)
     assert next(it) == (0, 1)
     assert next(it) == (2, 3)
     assert next(it) == (4, )
     with pytest.raises(StopIteration):
         next(it)
+
+
+def test_slicer_not_iterator():
+    with pytest.raises(TypeError):
+        next(tools.slicer([1, 2, 3], 1))
