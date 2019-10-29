@@ -4,112 +4,74 @@ tinymr
 
 Experimental in-memory MapReduce.
 
-.. image:: https://travis-ci.org/geowurster/tinymr.svg?branch=master
-    :target: https://travis-ci.org/geowurster/tinymr?branch=master
 
-.. image:: https://coveralls.io/repos/geowurster/tinymr/badge.svg?branch=master
-    :target: https://coveralls.io/r/geowurster/tinymr?branch=master
+Word Count Example
+==================
 
-Inspired by `Spotify's luigi framework <http://www.github.com/Spotify/luigi>`_,
-specifically its interface for Hadoop's streaming jar.
-
-
-The Word Count Example
-======================
-
-This is pretty naive, only performs some really basic word normalization, and
-does not handle punctuation.  The input is a stream of text read line
-by line, and the output is a dictionary where keys are words and values are
-the number of times each word appeared in the text stream.
-
-Here's a very fast and efficient word count example using Python's builtins:
-
-.. code-block:: python
-
-    from collections import Counter
-    import itertools as it
-    import operator as op
-
-    def builtin_mr(lines):
-        words = map(op.methodcaller('lower'), lines)
-        words = map(op.methodcaller('split'), words)
-        words = it.chain.from_iterable(words)
-        return Counter(concatenated)
-
-    with open('LICENSE.txt') as f:
-        builtin_mr(f)
-
-Currently the only MapReduce implementation is in-memory:
+As written, this only emits the 10 most common words and their counts:
 
 .. code-block:: python
 
     from tinymr import MapReduce
-    from tinymr.tools import single_key_output
+
 
     class WordCount(MapReduce):
 
+        def __init__(self, most_common):
+
+            """
+            Parameters
+            ----------
+            most_common : int
+                Only emit N most common words.
+            """
+
+            self.most_common = most_common
+
         def mapper(self, item):
-            line = item.lower().strip()
+
+            """Instances of individual words in a single line of text."""
+
+            line = item.lower()
             for word in line.split():
                 yield word, 1
 
         def reducer(self, key, values):
-            yield key, sum(values)
 
-    with open('LICENSE.txt') as f:
-        wc = WC()
-        results = wc(f)
+            """Count word frequence across the entire dataset."""
 
-Truncated output:
+            return key, sum(values)
 
-.. code-block:: json
+        def output(self, items):
 
-    {
-        "a": 1,
-        "above": 2,
-        "advised": 1,
-        "all": 1,
-        "and": 8,
-        "andor": 1
-    }
+            """Order results based on frequency descending."""
+
+            ordered = sorted(
+                items.items(),
+                key=lambda x: tuple(reversed(x)),
+                reverse=True)
+
+            return ordered[:self.most_common]
 
 
-Composite Keys
---------------
+    with open("LICENSE.txt") as f, WordCount(10) as mapreduce:
+        for word, count in mapreduce(f):
+            print(word, count)
 
-``tinymr`` transacts in ``tuples`` for several reasons: they're cheap to
-create, easy to read, and provide a uniform API for a (hopefully eventual)
-MapReduce implementation processing data that doesn't fit into memory.
+Output:
 
-The trade off is that the key layout must be known before data is processed
-in order to partition and sort data properly and probably a bit of a
-performance hit when they keys are transformed internally.
+.. code-block:: console
 
-
-.. code-block:: python
-
-    from tinymr import MapReduce
-
-    class CompositeKey(MapReduce):
-
-        def mapper(self, item):
-            yield (partition1, partition2), (sort1, sort2), data
-
-
-Combine Phase
--------------
-
-Some MapReduce implementations use a combiner to reduce the amount of data
-coming out of each mapper.  Parallel and threaded in-memory tasks would
-benefit from a combine phase to reduce the amount of data passing through
-``pickle``, which is expensive.  The cost is an extra partition + sort phase
-that I have tried implementing many times, the first of which probably made
-it into the commit history, and the rest weren't good enough.  This is
-probably more useful for MapReduce implementations that include intermediary
-disk I/O so I'll try tackling it again if ``tinymr`` makes it that far.  My
-gut instinct is that its just not worth it for in-memory tasks, and the code
-required to do it at a reasonable speed is difficult to read and un-Pythonic.
-See the `Roadmap`_ for more info.
+    the 13
+    of 12
+    or 11
+    and 8
+    in 6
+    this 5
+    copyright 5
+    any 4
+    provided 3
+    not 3
 
 
 Developing
@@ -126,10 +88,10 @@ Developing
 License
 =======
 
-See ``LICENSE.txt``
+See ``LICENSE.txt``.
 
 
 Changelog
 =========
 
-See ``CHANGES.md``
+See ``CHANGES.md``.

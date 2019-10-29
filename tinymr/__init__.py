@@ -1,5 +1,10 @@
-"""In-memory MapReduce. Get weird."""
+"""In-memory MapReduce. Get weird.
 
+See :obj:`tinymr.MapReduce` for an example.
+"""
+
+
+from __future__ import absolute_import
 
 from .mapreduce import MapReduce
 from .tools import slicer
