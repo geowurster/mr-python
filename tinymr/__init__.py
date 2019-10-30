@@ -1,21 +1,26 @@
-"""In-memory MapReduce.
+"""In-memory MapReduce. Get weird.
 
-Heavily inspired by Spotify's Luigi framework, specifically the Hadoop
-streaming jar interface.  github.com/Spotify/Luigi
+See :obj:`tinymr.MapReduce` for an example.
 """
 
 
-from tinymr.mapreduce import MapReduce
+from __future__ import absolute_import
+
+from .mapreduce import MapReduce
+from .tools import slicer
 
 
-__version__ = '0.1'
-__author__ = 'Kevin Wurster'
-__email__ = 'wursterk@gmail.com'
-__source__ = 'https://github.com/geowurster/tinymr'
+__all__ = ["MapReduce", "slicer"]
+
+
+__version__ = "0.2"
+__author__ = "Kevin Wurster"
+__email__ = "wursterk@gmail.com"
+__source__ = "https://github.com/geowurster/tinymr"
 __license__ = '''
 New BSD License
 
-Copyright (c) 2015-2017, Kevin D. Wurster
+Copyright (c) 2015-2019, Kevin D. Wurster
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
