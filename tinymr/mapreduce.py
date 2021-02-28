@@ -377,7 +377,7 @@ class MapReduce(object):
 
         return partitioned
 
-    def __call__(self, sequence, mapper_map=None, reducer_map=None):
+    def __call__(self, sequence, map=None, mapper_map=None, reducer_map=None):
 
         """Given a sequence of input data, execute the map reduce task in
         several phases:
@@ -421,6 +421,9 @@ class MapReduce(object):
         sequence : sequence
             Input data. :meth:`mapper` is mapped across this similar to:
             ``map(self.mapper, sequence)``.
+        map : callable
+            A convenience parameter that sets both ``mapper_map`` and
+            ``reducer_map``, although those parameters take precedence.
         mapper_map : callable
             Like above but ``mapper_map(self.mapper, sequence)``. Example
             above illustrates how to run the ``map`` phase across multiple
@@ -449,7 +452,7 @@ class MapReduce(object):
 
         # Run map phase. If 'mapper()' is a generator flatten everything to
         # a single sequence.
-        mapper_map = mapper_map or map
+        mapper_map = mapper_map or _builtin_map
         mapped = mapper_map(mapper, sequence)
         if isgeneratorfunction(self.mapper):
             mapped = it.chain.from_iterable(mapped)
@@ -527,7 +530,7 @@ if sys.version_info.major == 2:
 
     import copy_reg
 
-    map = it.imap
+    _builtin_map = it.imap
 
     def iteritems(d):
         return d.iteritems()
@@ -542,6 +545,6 @@ if sys.version_info.major == 2:
     copy_reg.pickle(type(MapReduce.mapper), _reduce_method)
 
 else:
-
+    _builtin_map = map
     def iteritems(d):
         return d.items()
