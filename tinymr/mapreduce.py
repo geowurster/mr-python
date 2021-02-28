@@ -220,13 +220,13 @@ class MapReduce(object):
         ``tuple``s.
         """
 
-    def output(self, items):
+    def output(self, mapping):
 
         """Catch and optionally modify task output before returning to caller.
 
         Parameters
         ----------
-        items : dict
+        mapping : dict
             A mapping between the first element produced by each :meth:`reducer`
             call and its corresponding values. See :meth:`reducer` for an
             explanation about when the dictionary values can be a ``list``.
@@ -237,7 +237,7 @@ class MapReduce(object):
         unaltered.
         """
 
-        return items
+        return mapping
 
     @property
     def sort_map_with_value(self):
