@@ -416,6 +416,18 @@ class MapReduce(object):
         Passing the same function to ``reducer_map`` would cause each
         :meth:`reducer` to be executed in its own thread.
 
+        Parameters
+        ----------
+        sequence : sequence
+            Input data. :meth:`mapper` is mapped across this similar to:
+            ``map(self.mapper, sequence)``.
+        mapper_map : callable
+            Like above but ``mapper_map(self.mapper, sequence)``. Example
+            above illustrates how to run the ``map`` phase across multiple
+            threads.
+        reducer_map : callable
+            Like ``mapper_map`` but for the ``reducer`` phase.
+
         Returns
         -------
         object
