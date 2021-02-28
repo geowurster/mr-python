@@ -335,7 +335,7 @@ class MapReduce(object):
             has been removed.
         """
 
-        sequence = iter(sequence)
+        sequence = (s for s in sequence)
         first = next(sequence)
         sequence = it.chain([first], sequence)
 
