@@ -495,20 +495,20 @@ def _wrap_mapper(item, mapper):
     return tuple(mapper(item))
 
 
-def _wrap_reducer(key_value, reducer):
+def _wrap_reducer(key_values, reducer):
 
     """Like :func:`_wrap_mapper` but for :meth:`MapReduce.reducer`.
 
     Parameters
     ----------
-    key_value : tuple
+    key_values : tuple
         Arguments for :meth:`MapReduce.reducer`. First element is the key and
         second is values.
     reducer : callable
         A :meth:`MapReduce.reducer`.
     """
 
-    return tuple(reducer(*key_value))
+    return tuple(reducer(*key_values))
 
 
 if sys.version_info.major == 2:
