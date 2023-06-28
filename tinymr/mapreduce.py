@@ -5,12 +5,12 @@ See :obj:`MapReduce` for an example.
 
 
 import abc
+import builtins
 from collections import defaultdict
 from inspect import isgeneratorfunction
 import itertools as it
 from functools import partial
 import operator as op
-import sys
 
 from .exceptions import ElementCountError
 
@@ -372,7 +372,7 @@ class MapReduce(object):
         if need_sort:
             partitioned = {
                 p: (v.sort(key=sortkey, reverse=reverse), list(map(getval, v)))[1]
-                for p, v in iteritems(partitioned)
+                for p, v in partitioned.items()
             }
 
         return partitioned
@@ -452,7 +452,7 @@ class MapReduce(object):
 
         # Run map phase. If 'mapper()' is a generator flatten everything to
         # a single sequence.
-        mapper_map = mapper_map or _builtin_map
+        mapper_map = mapper_map or builtins.map
         mapped = mapper_map(mapper, sequence)
         if isgeneratorfunction(self.mapper):
             mapped = it.chain.from_iterable(mapped)
@@ -466,7 +466,7 @@ class MapReduce(object):
         # Run reducer. Be sure not to hold on to a pointer to the partitioned
         # dictionary. Instead replace it with a pointer to a generator.
         reducer_map = reducer_map or it.starmap
-        partitioned = iteritems(partitioned)
+        partitioned = partitioned.items()
         reduced = reducer_map(reducer, partitioned)
 
         # If reducer is a generator expand to a single sequence.
@@ -483,7 +483,7 @@ class MapReduce(object):
         # When the operating under the latter condition extract that value and
         # pass that on as the single output value.
         if not isgeneratorfunction(self.reducer):
-            partitioned = {k: next(iter(v)) for k, v in iteritems(partitioned)}
+            partitioned = {k: next(iter(v)) for k, v in partitioned.items()}
 
         # Be sure not to pass a 'defualtdict()' as output.
         return self.output(dict(partitioned))
@@ -524,27 +524,3 @@ def _wrap_reducer(key_values, reducer):
     """
 
     return tuple(reducer(*key_values))
-
-
-if sys.version_info.major == 2:
-
-    import copy_reg
-
-    _builtin_map = it.imap
-
-    def iteritems(d):
-        return d.iteritems()
-
-    # Required for pickling.
-    def _reduce_method(m):
-        if m.im_self is None:
-            return getattr, (m.im_class, m.im_func.func_name)
-        else:
-            return getattr, (m.im_self, m.im_func.func_name)
-
-    copy_reg.pickle(type(MapReduce.mapper), _reduce_method)
-
-else:
-    _builtin_map = map
-    def iteritems(d):
-        return d.items()
