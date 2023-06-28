@@ -81,8 +81,9 @@ Developing
 
     $ git clone https://github.com/geowurster/tinymr.git
     $ cd tinymr
-    $ pip install -e .\[all\]
-    $ py.test --cov tinymr --cov-report term-missing
+    $ python3 -m venv venv
+    (venv) $ pip install --upgrade pip setuptools -e ".[test]"
+    (venv) $ pytest --cov tinymr --cov-report term-missing
 
 
 License
