@@ -1,8 +1,9 @@
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from functools import reduce
 from multiprocessing import Pool as MPProcessPool
 from multiprocessing.dummy import Pool as MPThreadPool
 import operator as op
-import sys
 
 import pytest
 
@@ -19,13 +20,6 @@ class SerialPoolExecutor(object):
 
     def map(self, func, sequence):
         return (func(s) for s in sequence)
-
-
-if sys.version_info.major > 2:
-    from functools import reduce
-    from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-else:
-    ProcessPoolExecutor = ThreadPoolExecutor = SerialPoolExecutor
 
 
 POOLS = (

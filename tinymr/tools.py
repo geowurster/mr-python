@@ -1,14 +1,8 @@
 """Tools for working with data in a MapReduce context."""
 
 
+from collections.abc import Iterator
 import itertools as it
-import sys
-
-
-if sys.version_info.major == 2:
-    from collections import Iterator
-else:
-    from collections.abc import Iterator
 
 
 __all__ = ["slicer"]
