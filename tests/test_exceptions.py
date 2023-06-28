@@ -1,7 +1,6 @@
 import pytest
 
-from tinymr import MapReduce
-from tinymr.exceptions import ElementCountError
+from tinymr import ElementCountError, MapReduce
 
 
 @pytest.mark.parametrize("bad", ((1,), (1, 2, 3, 4)))
