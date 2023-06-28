@@ -12,10 +12,11 @@ import itertools as it
 from functools import partial
 import operator as op
 
-from .exceptions import ElementCountError
+
+__all__ = ["ElementCountError", "MapReduce"]
 
 
-__all__ = ["MapReduce"]
+__version__ = "1.0"
 
 
 class MapReduce(object):
@@ -524,3 +525,10 @@ def _wrap_reducer(key_values, reducer):
     """
 
     return tuple(reducer(*key_values))
+
+
+class ElementCountError(Exception):
+
+    """The number of expected elements does not match the number of actual
+    elements.
+    """

@@ -6,9 +6,6 @@ Setup script for tinymr
 """
 
 
-import os
-
-from setuptools import find_packages
 from setuptools import setup
 
 
@@ -16,7 +13,7 @@ with open('README.rst') as f:
     readme = f.read().strip()
 
 
-with open(os.path.join('tinymr', '__init__.py')) as f:
+with open('tinymr.py') as f:
     for line in f:
         if '__version__' in line:
             version = line.split("=")[1].strip()
@@ -51,7 +48,7 @@ setup(
     keywords='experimental memory map reduce mapreduce',
     license="New BSD",
     long_description=readme,
-    packages=find_packages(exclude=['tests']),
+    py_modules=["tinymr"],
     url="https://github.com/geowurster/tinymr",
     version=version,
     zip_safe=True
