@@ -84,15 +84,3 @@ Developing
     $ python3 -m venv venv
     (venv) $ pip install --upgrade pip setuptools -e ".[test]"
     (venv) $ pytest --cov tinymr --cov-report term-missing
-
-
-License
-=======
-
-See ``LICENSE.txt``.
-
-
-Changelog
-=========
-
-See ``CHANGES.md``.
