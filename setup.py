@@ -49,7 +49,6 @@ extras_require = {
     'dev': [
         'pytest>=3',
         'pytest-cov',
-        'coveralls',
     ],
 }
 extras_require['all'] = list(it.chain.from_iterable(extras_require.values()))
