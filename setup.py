@@ -26,6 +26,7 @@ with open('tinymr.py') as f:
 
 extras_require = {
     'test': [
+        'pycodestyle',
         'pytest>=3',
         'pytest-cov',
     ],

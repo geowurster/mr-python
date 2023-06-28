@@ -21,8 +21,9 @@ __version__ = "1.0"
 
 class MapReduce(object):
 
-    """Subclass this base class and implement :meth:`mapper` and :meth:`reducer`
-    methods to produce an object that can run a map reduce task.
+    """Subclass this base class and implement :meth:`mapper` and
+    :meth:`reducer` methods to produce an object that can run a map reduce
+    task.
 
     Output can be customized by overriding :meth:`output`, and sorting can
     be controlled via these properties: :attr:`sort_map_with_value`,
@@ -204,7 +205,8 @@ class MapReduce(object):
 
         Output from ``reducer()`` can be sorted similar to :meth:`mapper`
         before being passed to :meth:`output` based on on the number of
-        elements, :attr:`sort_reduce_with_value`, and :attr:`sort_reduve_reverse`.
+        elements, :attr:`sort_reduce_with_value`, and
+        :attr:`sort_reduve_reverse`.
 
         Parameters
         ----------
@@ -228,9 +230,10 @@ class MapReduce(object):
         Parameters
         ----------
         mapping : dict
-            A mapping between the first element produced by each :meth:`reducer`
-            call and its corresponding values. See :meth:`reducer` for an
-            explanation about when the dictionary values can be a ``list``.
+            A mapping between the first element produced by each
+            :meth:`reducer` call and its corresponding values. See
+            :meth:`reducer` for an explanation about when the dictionary values
+            can be a ``list``.
 
         Returns
         -------
@@ -356,7 +359,8 @@ class MapReduce(object):
             sortkey = None
 
         elif not has_sort_element and sort_with_value:
-            getval = lambda x: x
+            def getval(x):
+                return x
             sortkey = None
 
         else:
@@ -372,7 +376,10 @@ class MapReduce(object):
 
         if need_sort:
             partitioned = {
-                p: (v.sort(key=sortkey, reverse=reverse), list(map(getval, v)))[1]
+                p: (
+                    v.sort(key=sortkey, reverse=reverse),
+                    list(map(getval, v))
+                )[1]
                 for p, v in partitioned.items()
             }
 
