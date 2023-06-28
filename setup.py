@@ -16,33 +16,16 @@ with open('README.rst') as f:
     readme = f.read().strip()
 
 
-def parse_dunder_line(string):
-
-    """
-    Take a line like:
-
-        "__version__ = '0.0.8'"
-
-    and turn it into a tuple:
-
-        ('__version__', '0.0.8')
-
-    Not very fault tolerant.
-    """
-
-    # Split the line and remove outside quotes
-    variable, value = (s.strip() for s in string.split('=')[:2])
-    value = value[1:-1].strip()
-    return variable, value
-
-
 with open(os.path.join('tinymr', '__init__.py')) as f:
-    dunders = dict(map(
-        parse_dunder_line, filter(lambda l: l.strip().startswith('__'), f)))
-    version = dunders['__version__']
-    author = dunders['__author__']
-    email = dunders['__email__']
-    source = dunders['__source__']
+    for line in f:
+        if '__version__' in line:
+            version = line.split("=")[1].strip()
+            version = version.strip('"')
+            version = version.strip("'")
+            break
+    else:
+        raise RuntimeError("Could not find '__version__'")
+
 
 extras_require = {
     'test': [
@@ -54,15 +37,12 @@ extras_require = {
 
 setup(
     name='tinymr',
-    author=author,
-    author_email=email,
+    author="Kevin Wurster",
+    author_email="wursterk@gmail.com",
     classifiers=[
-        'Topic :: Utilities',
         'Intended Audience :: Developers',
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 7 - Inactive',
         'License :: OSI Approved :: BSD License',
-        'Topic :: Text Processing',
-        'Topic :: Software Development :: Libraries',
         'Programming Language :: Python :: 3'
     ],
     description="Pythonic in-memory MapReduce.",
@@ -72,7 +52,7 @@ setup(
     license="New BSD",
     long_description=readme,
     packages=find_packages(exclude=['tests']),
-    url=source,
+    url="https://github.com/geowurster/tinymr",
     version=version,
     zip_safe=True
 )
