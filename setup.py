@@ -6,7 +6,6 @@ Setup script for tinymr
 """
 
 
-import itertools as it
 import os
 
 from setuptools import find_packages
@@ -46,12 +45,11 @@ with open(os.path.join('tinymr', '__init__.py')) as f:
     source = dunders['__source__']
 
 extras_require = {
-    'dev': [
+    'test': [
         'pytest>=3',
         'pytest-cov',
     ],
 }
-extras_require['all'] = list(it.chain.from_iterable(extras_require.values()))
 
 
 setup(
