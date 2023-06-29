@@ -38,7 +38,7 @@ As written, this only emits the 10 most common words and their counts:
 
         def reducer(self, key, values):
 
-            """Count word frequence across the entire dataset."""
+            """Count word frequency across the entire dataset."""
 
             return key, sum(values)
 
@@ -85,3 +85,4 @@ Developing
     (venv) $ pip install --upgrade pip setuptools -e ".[test]"
     (venv) $ pytest --cov tinymr --cov-report term-missing
     (venv) $ pycodestyle
+    (venv) $ pydocstyle
