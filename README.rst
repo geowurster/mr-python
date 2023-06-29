@@ -1,14 +1,16 @@
-======
+######
 tinymr
-======
+######
 
-Experimental in-memory MapReduce.
+In-memory MapReduce. A personal project.
 
 
+******************
 Word Count Example
-==================
+******************
 
-As written, this only emits the 10 most common words and their counts:
+Classic. Unavoidable. As written, this only emits the 10 most common words
+and their counts:
 
 .. code-block:: python
 
@@ -77,12 +79,40 @@ Output:
 Developing
 ==========
 
-.. code-block:: console
+.. code-block::
 
+    # Set up workspace
     $ git clone https://github.com/geowurster/tinymr.git
     $ cd tinymr
     $ python3 -m venv venv
     (venv) $ pip install --upgrade pip setuptools -e ".[test]"
+
+    # Run tests
     (venv) $ pytest --cov tinymr --cov-report term-missing
+
+    # Run linters
     (venv) $ pycodestyle
     (venv) $ pydocstyle
+
+
+Last Working State
+==================
+
+.. code-block::
+
+    (venv) $ python3 --version
+    Python 3.11.4
+
+    (venv) $ python3 -c "import platform; print(platform.platform())"
+    macOS-12.6.7-arm64-arm-64bit
+
+    (venv) $ pip freeze
+    coverage==7.2.7
+    iniconfig==2.0.0
+    packaging==23.1
+    pluggy==1.2.0
+    pycodestyle==2.10.0
+    pydocstyle==6.3.0
+    pytest==7.4.0
+    pytest-cov==4.1.0
+    snowballstemmer==2.2.0
