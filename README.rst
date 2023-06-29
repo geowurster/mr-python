@@ -86,15 +86,3 @@ Developing
     (venv) $ pytest --cov tinymr --cov-report term-missing
     (venv) $ pycodestyle
     (venv) $ pydocstyle
-
-
-License
-=======
-
-See ``LICENSE.txt``.
-
-
-Changelog
-=========
-
-See ``CHANGES.md``.
