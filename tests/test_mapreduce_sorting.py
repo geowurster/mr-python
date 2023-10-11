@@ -26,8 +26,8 @@ def test_sort_mapper_value(reverse):
         def output(self, items):
             return items[None]
 
-    with SortMapValue() as mr:
-        assert mr(data) is True
+    mr = SortMapValue()
+    assert mr(data) is True
 
 
 @pytest.mark.parametrize("reverse", (True, False))
@@ -53,8 +53,8 @@ def test_sort_reducer_value(reverse):
         def output(self, items):
             return items[None] == expected
 
-    with SortReduceValue() as mr:
-        assert mr(data) is True
+    mr = SortReduceValue()
+    assert mr(data) is True
 
 
 @pytest.mark.parametrize("reverse", (True, False))
@@ -82,8 +82,8 @@ def test_mapper_sort_element(reverse):
         def output(self, items):
             return items[None]
 
-    with SortMap() as mr:
-        actual = mr(data)
+    mr = SortMap()
+    actual = mr(data)
 
     assert actual is True
 
@@ -115,8 +115,8 @@ def test_reducer_sort_element(reverse):
         def output(self, items):
             return items[None]
 
-    with SortReduce() as mr:
-        actual = mr(data)
+    mr = SortReduce()
+    actual = mr(data)
 
     assert expected == actual
 
@@ -161,7 +161,7 @@ def test_complex_sort(reverse):
 
     random.shuffle(data)
 
-    with ComplexSort() as mr:
-        actual = mr(data)
+    mr = ComplexSort()
+    actual = mr(data)
 
     assert expected == actual

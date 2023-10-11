@@ -33,10 +33,7 @@ class MapReduce(object):
     :attr:`sort_reduce_reverse`.
 
     Subclasses are also given complete control over :meth:`__init__`, and can
-    implement a context manager by overloading :meth:`__enter__` and
-    :meth:`__exit__`. The default implementation provides a :meth:`close`
-    that can be overloaded to perform any teardown when exiting the context
-    manager.
+    implement a context manager by defining the required methods.
 
     See :meth:`__call__` for how to execute the :meth:`mapper` and/or the
     :meth:`reducer` concurrently.
@@ -71,7 +68,8 @@ class MapReduce(object):
 
     .. code-block:: python
 
-        with WordCount() as mr, open('data.txt') as f:
+        mr = WordCount()
+        with open('data.txt') as f:
             results = mr(f)
 
     The output of this task is a dictionary mapping keys to values (the default
@@ -342,33 +340,6 @@ class MapReduce(object):
 
         return False
 
-    def close(self):
-
-        """Optionally tear down class.
-
-        This class can be structured as a context manager. By default,
-        :meth:`__exit__` calls this method, so context teardown can be
-        achieved by overloading this method.
-        """
-
-    def __enter__(self):
-
-        """Enter context.
-
-        Default implementation does nothing.
-        """
-
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-
-        """Exit context.
-
-        Default implementation calls :meth:`close`.
-        """
-
-        self.close()
-
     def __partition_and_sort(
             self, sequence, sort_with_value, reverse):
 
@@ -475,7 +446,8 @@ class MapReduce(object):
                 def reducer(self, key, values):
                     return key, sum(values)
 
-            with WordCount() as mr, ThreadPoolExecutor(4) as pool:
+            mr = WordCount()
+            with ThreadPoolExecutor(4) as pool:
 
                 paths = ["file1.txt", "file2.txt"]
 

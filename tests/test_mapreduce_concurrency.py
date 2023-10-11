@@ -109,11 +109,11 @@ def test_mapreduce(
             reduce_pool = reduce_pool(1)
             reducer_map = reduce_pool.map
 
-        with wordcount() as wc:
-            actual = wc(
-                text.splitlines(),
-                mapper_map=mapper_map,
-                reducer_map=reducer_map)
+        wc = wordcount()
+        actual = wc(
+            text.splitlines(),
+            mapper_map=mapper_map,
+            reducer_map=reducer_map)
 
     finally:
         getattr(map_pool, 'close', lambda: None)()
