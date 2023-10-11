@@ -19,7 +19,7 @@ __all__ = ["ElementCountError", "MapReduce"]
 __version__ = "1.0"
 
 
-class MapReduce(object):
+class MapReduce(abc.ABC):
 
     """In-memory MapReduce framework.
 
@@ -87,8 +87,6 @@ class MapReduce(object):
     data and :meth:`output` for information about how to customize what the
     task returns.
     """
-
-    __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
     def mapper(self, item):
