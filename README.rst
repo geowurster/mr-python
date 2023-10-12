@@ -1,83 +1,20 @@
-######
 tinymr
-######
+======
 
 In-memory MapReduce. A personal project.
 
+Documentation
+-------------
 
-******************
-Word Count Example
-******************
+See `docs.rst <docs.rst>`_.
 
-Classic. Unavoidable. As written, this only emits the 10 most common words
-and their counts:
-
-.. code-block:: python
-
-    from tinymr import MapReduce
-
-
-    class WordCount(MapReduce):
-
-        def __init__(self, most_common):
-
-            """
-            Parameters
-            ----------
-            most_common : int
-                Only emit N most common words.
-            """
-
-            self.most_common = most_common
-
-        def mapper(self, item):
-
-            """Instances of individual words in a single line of text."""
-
-            line = item.lower()
-            for word in line.split():
-                yield word, 1
-
-        def reducer(self, key, values):
-
-            """Count word frequency across the entire dataset."""
-
-            return key, sum(values)
-
-        def output(self, items):
-
-            """Order results based on frequency descending."""
-
-            ordered = sorted(
-                items.items(),
-                key=lambda x: tuple(reversed(x)),
-                reverse=True)
-
-            return ordered[:self.most_common]
-
-
-    with open("LICENSE.txt") as f, WordCount(10) as mapreduce:
-        for word, count in mapreduce(f):
-            print(word, count)
-
-Output:
-
-.. code-block:: console
-
-    the 13
-    of 12
-    or 11
-    and 8
-    in 6
-    this 5
-    copyright 5
-    any 4
-    provided 3
-    not 3
-
+Documentation is built with `docutils <http://www.docutils.org>`_, which is
+much lighter than Sphinx, but also has far fewer directives. It does support
+rendering a single reStructuredText file as a single HTMl file though. The
+project provides a helpful `cheatsheet <https://docutils.sourceforge.io/docs/user/rst/cheatsheet.txt>`_.
 
 Developing
-==========
+----------
 
 .. code-block::
 
@@ -85,18 +22,21 @@ Developing
     $ git clone https://github.com/geowurster/tinymr.git
     $ cd tinymr
     $ python3 -m venv venv
-    (venv) $ pip install --upgrade pip setuptools -e ".[test]"
-
-    # Run tests
-    (venv) $ pytest --cov tinymr --cov-report term-missing
+    (venv) $ pip install --upgrade pip setuptools
+    (venv) $ pip install -r requirements-dev.txt -e ".[test]"
 
     # Run linters
     (venv) $ pycodestyle
     (venv) $ pydocstyle
 
+    # Run tests
+    (venv) $ pytest --cov tinymr --cov-report term-missing
+
+    # Build docs
+    (venv) $ docutils docs.rst docs.html
 
 Last Working State
-==================
+------------------
 
 .. code-block::
 
@@ -107,12 +47,25 @@ Last Working State
     macOS-12.6.7-arm64-arm-64bit
 
     (venv) $ pip freeze
-    coverage==7.2.7
+    coverage==7.3.2
+    docutils==0.20.1
     iniconfig==2.0.0
-    packaging==23.1
-    pluggy==1.2.0
-    pycodestyle==2.10.0
+    packaging==23.2
+    pluggy==1.3.0
+    pycodestyle==2.11.0
     pydocstyle==6.3.0
-    pytest==7.4.0
+    Pygments==2.16.1
+    pytest==7.4.2
     pytest-cov==4.1.0
     snowballstemmer==2.2.0
+
+Noncommittal To Do List
+-----------------------
+
+* Move properties to descriptors.
+* Move ``MapReduce.__partition_and_sort()`` to a function.
+* Attempt an async implementation.
+* Use ``tox`` for testing.
+* Use ``black``.
+* Use ``mypy``.
+

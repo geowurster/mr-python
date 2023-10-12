@@ -1,0 +1,4 @@
+docutils
+pycodestyle
+pydocstyle
+pygments
