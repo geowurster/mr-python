@@ -1,7 +1,4 @@
-"""In-memory MapReduce. Get weird.
-
-See :obj:`MapReduce` for an example.
-"""
+"""In-memory MapReduce."""
 
 
 import abc
@@ -23,229 +20,59 @@ class MapReduce(abc.ABC):
 
     """In-memory MapReduce framework.
 
-    Subclass this base class and implement :meth:`mapper` and
-    :meth:`reducer` methods to produce an object that can run a map reduce
-    task.
+    Subclassers must implement ``mapper()`` and ``reducer()`` methods. Various
+    other properties and methods control how a task is executed. Subclassers
+    are free to implement an ``__init__()`` method to allow for configuration
+    at instantiation.
 
-    Output can be customized by overriding :meth:`output`, and sorting can
-    be controlled via these properties: :attr:`sort_map_with_value`,
-    :attr:`sort_map_reverse`, :attr:`sort_reduce_with_value`, and
-    :attr:`sort_reduce_reverse`.
-
-    Subclasses are also given complete control over :meth:`__init__`, and can
-    implement a context manager by defining the required methods.
-
-    See :meth:`__call__` for how to execute the :meth:`mapper` and/or the
-    :meth:`reducer` concurrently.
-
-    Example Word Count Task
-    -----------------------
-
-    This is not necessarily the fastest or best way to count words, but it
-    is the easiest to read. The ``mapper()`` takes a line of text, split it
-    into words, and emits tuples where the first element is the word and the
-    second is a 1. The ``reducer()`` receives the word and a bunch of 1's, one
-    for each instance of the word across all the input text. The
-    ``reducer()`` counts the 1's and emits a tuple where the first element
-    is the word and the second is a count of all instances of that word across
-    the entire input text.
-
-    .. code-block:: python
-
-        from tinymr import MapReduce
-
-        class WordCount(MapReduce):
-
-            def mapper(self, item):
-                line = item.lower()
-                for word in line.split():
-                    yield word, 1
-
-            def reducer(self, key, values):
-                return word, sum(values)
-
-    The task can be invoked like this:
-
-    .. code-block:: python
-
-        mr = WordCount()
-        with open('data.txt') as f:
-            results = mr(f)
-
-    The output of this task is a dictionary mapping keys to values (the default
-    implementation) and would look something like:
-
-    .. code-block:: json
-
-        {
-            "word": 345,
-            "the": 4,
-            "another": 71
-        }
-
-    See :meth:`mapper` and :meth:`reducer` for information about how to sort
-    data and :meth:`output` for information about how to customize what the
-    task returns.
+    Once instantiated, callers must pass a stream of data to ``__call__()``.
     """
 
     @abc.abstractmethod
     def mapper(self, item):
 
-        """Map phase.
+        """Map phase. Subclassers must implement.
 
-        Receives a single item from the input stream and produces one or
-        more output ``tuple``s with 2 or 3 elements. The first element is
-        always used for partitioning and the last is always passed to the
-        ``reducer()``:
+        Receives a single item from the input stream and produces one or more
+        tuples.
 
-        .. code-block::
-
-            (partition, value)
-
-        but if the middle element is present then the data is sorted according
-        to that value prior to being passed to ``reducer()``.
-
-        .. code-block::
-
-            (partition, sort, value)
-
-        All elements emitted by the ``mapper()`` must be of the same length,
-        however for performance reasons only the first is checked.
-
-        This mapper looks for lines in a file containing the word
-        ``fox`` and passes those lines to the ``reducer()`` in sorted order.
-
-        .. code-block:: python
-
-            def mapper(self, path):
-
-                with open(path) as f:
-
-                    for idx, line in enumerate(f):
-                        if "fox" in line.lower().split():
-                            yield path, idx, line
-
-        A ``mapper()`` can either ``return`` a single value or ``yield`` many.
-        This ``mapper()`` just indicates if the word "fox" appears in a text
-        file:
-
-        .. code-block:: python
-
-            import itertools as it
-
-            def mapper(self, path):
-
-                with open(path) in f:
-                    text = f.read()
-                    text = text.lower()
-                    words = set(text.split())
-
-                    contains_fox = "fox" in words
-                    return item, contains_fox
-
-        and this ``mapper()`` does the same but by streaming the file and
-        checking each line:
-
-        .. code-block:: python
-
-            def mapper(self, item):
-
-                with open(item) as f:
-                    for line in f:
-                        if "fox" in line.lower().split():
-                            yield item, 1
-                            break
-
-        Normally only the 2nd key enables sorting, but the value itself can
-        be integrated into sorting with the :attr:`sort_map_with_value`
-        attribute.
-
-        If ``mapper()`` emits 3 elements and :attr:`sort_with_map_value` is
-        enabled, then the results with be sorted based on the sort element AND
-        the value element. Results can be sorted in reverse with
-        :attr:`sort_map_reverse`, which can be configured similarly to
-        :attr:`sort_map_with_value`.
-
-        Parameters
-        ----------
-        item : object
+        :param object item:
             A single item from the input data stream.
 
-        Returns
-        -------
-        A ``tuple`` containing 2 or 3 elements. Can also ``yield`` multiple
-        ``tuple``s.
+        :rtype tuple or generator:
+
+        :return:
+            One or more tuples in the form of: ``(key, value)`` or
+            ``(key, sort, value)``. Can ``return`` a single tuple or ``yield``
+            many. The presence of the ``sort`` element triggers sorting prior
+            to calling ``reducer()``.
         """
+
+        raise NotImplementedError
 
     @abc.abstractmethod
     def reducer(self, key, values):
 
-        """Reduce phase.
+        """Reduce phase. Subclassers must implement.
 
-        Receives values corresponding to a single partition. May or may
-        not be sorted depending on the ``mapper()`` implementation and
-        :attr:`sort_map_with_value`.
+        Receives values corresponding to a single partition/key and produces
+        one or more tuples.
 
-        Outputs a ``tuple`` with 2 or 3 keys that are subjected to the same
-        sorting rules as :meth:`mapper`.
+        :param object key:
+            The partition key. This is the first element from all the tuples
+            emitted by ``mapper()``.
+        :param list values:
+            List of all values emitted by ``mapper``. May or may not be sorted
+            depending on the ``mapper()`` implementation and the
+            ``sort_map_with_value`` property. Sort order can be configured with
+            the ``sort_map_reverse`` property.
 
-        Like :meth:`mapper`, ``reducer()`` can ``return`` a single value or
-        ``yield`` multiple. For :meth:`mapper` this has no impact aside from
-        making some implementations easier, but for ``reducer()`` this impacts
-        how the data is passed on to :meth:`output`. Using the word count
-        example, this ``reducer()`` returns a single value:
+        :rtype tuple or generator:
 
-        .. code-block:: python
-
-            def reducer(self, key, values):
-                return key, sum(values)
-
-        whereas this ``reducer()`` yields a single value:
-
-        .. code-block:: python
-
-            def reducer(self, key, values):
-                yield key, sum(values)
-
-        The difference is that for the former :meth:`output` receives a
-        dictionary that looks like:
-
-        .. code-block:: json
-
-            {
-                "word": 345,
-                "the": 4,
-                "another": 71
-            }
-
-        however for the latter :meth:`output` receives this:
-
-        .. code-block:: json
-
-            {
-                "word": [345],
-                "the": [4],
-                "another": [71]
-            }
-
-        The difference is that ``yield``ing values gives :meth:`output` a list
-        of values for each key. A ``reducer()`` that ``return``s a single value
-        only has an output key containing a single value, however one that
-        ``yield``s multiple values produces an output key containing multiple
-        values.
-
-        Output from ``reducer()`` can be sorted similar to :meth:`mapper`
-        before being passed to :meth:`output` based on the number of elements,
-        :attr:`sort_reduce_with_value`, and :attr:`sort_reduce_reverse`.
-
-        Parameters
-        ----------
-        key : object
-            The partition key, which is the first element in the output from
-            :meth:`mapper`.
-        values : list
-            List of all values emitted by :meth:`mapper`. May or may not be
-            sorted. See :meth:`mapper` for information about sorting.
+        :return:
+            Like ``mapper()``, tuples take the form of ``(key, value)`` or
+            ``(key, sort, value)``. Must ``return`` a single tuple or ``yield``
+            many.
 
         Returns
         -------
@@ -255,20 +82,23 @@ class MapReduce(abc.ABC):
 
     def output(self, mapping):
 
-        """Catch and optionally modify task output before returning to caller.
+        """Optionally modify output data before it is returned to the caller.
 
-        Parameters
-        ----------
-        mapping : dict
-            A mapping between the first element produced by each
-            :meth:`reducer` call and its corresponding values. See
-            :meth:`reducer` for an explanation about when the dictionary values
-            can be a ``list``.
+        The contents of ``mapping`` depends on how ``reducer()`` is
+        implemented. If ``reducer()`` yields multiple values then ``mapping``'s
+        values will be a list of objects. If ``reducer()`` returns a single
+        value ``mapping``'s keys will be a single object.
 
-        Returns
-        -------
-        Anything! The default implementation just passes on the input ``dict``
-        unaltered.
+        :param dict mapping:
+            A mapping between the first element produced by each ``reducer()``
+            call and its corresponding values as a list.
+
+        :rtype object:
+
+        :return:
+            Anything! The default implementation just passes on the input
+            mapping unaltered, but subclassers are free to do whatever they
+            wish in this method.
         """
 
         return mapping
@@ -276,16 +106,9 @@ class MapReduce(abc.ABC):
     @property
     def sort_map_with_value(self):
 
-        """Include value/data when sorting output of the map phase.
+        """Include the value key produced by ``mapper()`` when sorting.
 
-        If :meth:`mapper`'s output does not include a sort element then this
-        flag causes the sort phase to sort on the actual value. If
-        :meth:`mapper`'s output does include a sort element then the sort phase
-        sorts on that element and the actual value.
-
-        Returns
-        -------
-        bool
+        :rtype bool:
         """
 
         return False
@@ -293,15 +116,9 @@ class MapReduce(abc.ABC):
     @property
     def sort_map_reverse(self):
 
-        """Sort output of map phase like ``sorted(..., reversed=True)``.
+        """Sort output of ``mapper()`` descending instead of ascending.
 
-        Indicates if the output of :meth:`mapper` should be sorted
-        descending instead of ascending. Ignored if not sorting. See
-        :meth:`mapper` for more information.
-
-        Returns
-        -------
-        bool
+        :rtype bool:
         """
 
         return False
@@ -309,15 +126,9 @@ class MapReduce(abc.ABC):
     @property
     def sort_reduce_with_value(self):
 
-        """Include data/value when sorting output of the reduce phase.
+        """Like the ``sort_map_with_value`` property but for ``reducer()``.
 
-        Like :attr:`sort_map_with_value` but for the output of
-        :meth:`reducer`. See :meth:`mapper` and :meth:`reducer` for
-        more information.
-
-        Returns
-        -------
-        bool
+        :rtype bool:
         """
 
         return False
@@ -325,15 +136,9 @@ class MapReduce(abc.ABC):
     @property
     def sort_reduce_reverse(self):
 
-        """Sort output of reduce phase like ``sorted(..., reverse=True)``.
+        """Like the ``sort_map_reverse`` property but for ``reducer()``.
 
-        Like :attr:`sort_map_reverse` but for the output of :meth:`reducer`.
-        See :meth:`mapper`, :meth:`reducer`, and :meth:`sort_map_reverse` for
-        more information.
-
-        Returns
-        -------
-        bool
+        :rtype bool:
         """
 
         return False
@@ -343,25 +148,23 @@ class MapReduce(abc.ABC):
 
         """Partition and sort data after mapping but before reducing.
 
-        Given the output from :meth:`mapper` or :meth:`reducer`, partition,
+        Given the output from ``mapper()`` or ``reducer()``, partition,
         sort if necessary, remove any data that was only used for sorting.
 
-        Parameters
-        ----------
-        sequence : iterable
-            Of ``tuple``s. Output from :meth:`mapper` or :meth:`reducer`.
-        sort_with_value : bool
+        :param iterable sequence:
+            Of tuples. Output from ``mapper()`` or ``reducer()``.
+        :param bool sort_with_value:
             Indicates if data should be sorted based on the value element in
             addition to any sort elements that may be present.
-        reverse : bool
+        :param bool reverse:
             Indicates if data should be sorted descending instead of ascending.
 
-        Returns
-        -------
-        dict
+        :rtype dict:
+
+        :return:
             Where keys are partitions and values are ready to be passed to
-            :meth:`reduce` or :meth:`output`. All extra sorting information
-            has been removed.
+            ``reduce()`` or ``output()``. All extra sorting information has
+            been removed.
         """
 
         sequence = (s for s in sequence)
@@ -412,67 +215,27 @@ class MapReduce(abc.ABC):
 
     def __call__(self, sequence, map=None, mapper_map=None, reducer_map=None):
 
-        """Execute a map reduce task.
+        """Execute a MapReduce task.
 
-        Given a sequence of input data, execute the map reduce task in
-        several phases:
+        The map and/or reduce phases can be executed concurrently by passing a
+        parallelized ``map()`` function to ``mapper_map`` and ``reducer_map``.
+        For example, ``concurrent.futures.ProcessPoolExecutor.map()``.
 
-            1. Map (:meth:`mapper`).
-            2. Partition and optionally sort.
-            3. Reduce (:meth:`reducer()`).
-            4. Partition and optionally sort.
-            5. Construct output (:meth:`output`).
+        :param sequence sequence:
+            Each item is passed to ``mapper()``.
+        :param callable map:
+            Default value for ``mapper_map`` and ``reducer_map``.
+        :param callable mapper_map:
+            An alternative implementation of the builtin ``map()`` function.
+            Can be used to run the map phase across multiple processes or
+            threads by passing something like ``multiprocessing.Pool.map()``.
+        :param callable reducer_map:
+            Like ``mapper_map`` but for the reduce phase.
 
-        Optionally the map and/or reduce phases can be executed concurrently
-        by passing a parallelized ``map()`` function to ``mapper_map`` and
-        ``reducer_map``. For example, this ``WordCount`` implementation
-        runs each :meth:`mapper` in a separate thread but runs the reducer
-        serially:
+        :rtype object:
 
-        .. code-block:: python
-
-            from concurrent.futures import ThreadPoolExecutor
-
-            class WordCount(MapReduce):
-
-                def mapper(self, item):
-                    with open(item) as f:
-                        for line in f:
-                            for word in line.split():
-                                yield word, 1
-
-                def reducer(self, key, values):
-                    return key, sum(values)
-
-            mr = WordCount()
-            with ThreadPoolExecutor(4) as pool:
-
-                paths = ["file1.txt", "file2.txt"]
-
-                results = mr(paths, mapper_map=pool.map)
-
-        Passing the same function to ``reducer_map`` would cause each
-        :meth:`reducer` to be executed in its own thread.
-
-        Parameters
-        ----------
-        sequence : sequence
-            Input data. :meth:`mapper` is mapped across this similar to:
-            ``map(self.mapper, sequence)``.
-        map : callable
-            A convenience parameter that sets both ``mapper_map`` and
-            ``reducer_map``, although those parameters take precedence.
-        mapper_map : callable
-            Like above but ``mapper_map(self.mapper, sequence)``. Example
-            above illustrates how to run the ``map`` phase across multiple
-            threads.
-        reducer_map : callable
-            Like ``mapper_map`` but for the ``reducer`` phase.
-
-        Returns
-        -------
-        object
-            See :meth:`output`.
+        :return:
+            See ``output()``.
         """
 
         # If 'mapper()' is a generator, and it will be executed in some job
@@ -531,19 +294,18 @@ def _wrap_mapper(item, mapper):
 
     """Use when running concurrently to normalize mapper output.
 
-    Expands generator produced by :meth:`MapReduce.mapper` so that results can
+    Expands generator produced by ``MapReduce.mapper()`` so that results can
     be serialized and returned by a worker.
 
-    Parameters
-    ----------
-    item : object
-        See :meth:`MapReduce.mapper`.
-    mapper : callable
-        A :meth:`MapReduce.mapper`.
+    :param object item:
+        For ``MapReduce.mapper()``.
+    :param callable mapper:
+        A ``MapReduce.mapper()``.
 
-    Returns
-    -------
-    tuple
+    :rtype tuple:
+
+    :return:
+        Output of ``mapper`` expanded into a tuple.
     """
 
     return tuple(mapper(item))
@@ -551,15 +313,18 @@ def _wrap_mapper(item, mapper):
 
 def _wrap_reducer(key_values, reducer):
 
-    """Like :func:`_wrap_mapper` but for :meth:`MapReduce.reducer`.
+    """Like ``_wrap_mapper()`` but for ``MapReduce.reducer()``.
 
-    Parameters
-    ----------
-    key_values : tuple
-        Arguments for :meth:`MapReduce.reducer`. First element is the key and
+    :param tuple key_values:
+        Arguments for ``MapReduce.reducer()``. First element is the key and
         second is values.
-    reducer : callable
-        A :meth:`MapReduce.reducer`.
+    :param callable reducer:
+        A ``MapReduce.reducer()``.
+
+    :rtype tuple:
+
+    :return:
+        Output of ``reducer`` wrapped in a tuple.
     """
 
     return tuple(reducer(*key_values))

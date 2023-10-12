@@ -14,3 +14,7 @@ dist/
 
 # python3 -m venv venv
 venv/
+
+# Docs
+docs.html
+
