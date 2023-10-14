@@ -143,76 +143,6 @@ class MapReduce(abc.ABC):
 
         return False
 
-    def __partition_and_sort(
-            self, sequence, sort_with_value, reverse):
-
-        """Partition and sort data after mapping but before reducing.
-
-        Given the output from ``mapper()`` or ``reducer()``, partition,
-        sort if necessary, remove any data that was only used for sorting.
-
-        :param iterable sequence:
-            Of tuples. Output from ``mapper()`` or ``reducer()``.
-        :param bool sort_with_value:
-            Indicates if data should be sorted based on the value element in
-            addition to any sort elements that may be present.
-        :param bool reverse:
-            Indicates if data should be sorted descending instead of ascending.
-
-        :rtype dict:
-
-        :return:
-            Where keys are partitions and values are ready to be passed to
-            ``reduce()`` or ``output()``. All extra sorting information has
-            been removed.
-        """
-
-        sequence = (s for s in sequence)
-        first = next(sequence)
-        sequence = it.chain([first], sequence)
-
-        if len(first) not in (2, 3):
-            raise ElementCountError(
-                "Expected data of size 2 or 3, not {}. Example: {}".format(
-                    len(first), first))
-
-        has_sort_element = len(first) == 3
-        need_sort = has_sort_element or sort_with_value
-
-        if has_sort_element:
-            sequence = map(op.itemgetter(0, slice(1, 3)), sequence)
-
-        if not need_sort:
-            getval = None
-            sortkey = None
-
-        elif not has_sort_element and sort_with_value:
-            def getval(x):
-                return x
-            sortkey = None
-
-        else:
-            getval = op.itemgetter(1)
-            if sort_with_value:
-                sortkey = None
-            else:
-                sortkey = op.itemgetter(0)
-
-        partitioned = defaultdict(list)
-        for ptn, vals in sequence:
-            partitioned[ptn].append(vals)
-
-        if need_sort:
-            partitioned = {
-                p: (
-                    v.sort(key=sortkey, reverse=reverse),
-                    list(map(getval, v))
-                )[1]
-                for p, v in partitioned.items()
-            }
-
-        return partitioned
-
     def __call__(self, sequence, map=None, mapper_map=None, reducer_map=None):
 
         """Execute a MapReduce task.
@@ -259,7 +189,7 @@ class MapReduce(abc.ABC):
             mapped = it.chain.from_iterable(mapped)
 
         # Partition and sort (if necessary).
-        partitioned = self.__partition_and_sort(
+        partitioned = _partition_and_sort(
             mapped,
             sort_with_value=self.sort_map_with_value,
             reverse=self.sort_map_reverse)
@@ -275,7 +205,7 @@ class MapReduce(abc.ABC):
             reduced = it.chain.from_iterable(reduced)
 
         # Partition and sort (if necessary).
-        partitioned = self.__partition_and_sort(
+        partitioned = _partition_and_sort(
             reduced,
             sort_with_value=self.sort_reduce_with_value,
             reverse=self.sort_reduce_reverse)
@@ -333,3 +263,73 @@ def _wrap_reducer(key_values, reducer):
 class ElementCountError(Exception):
 
     """Raise when the actual element count does not match expectations."""
+
+
+def _partition_and_sort(sequence, sort_with_value, reverse):
+
+    """Partition and sort data after mapping but before reducing.
+
+    Given the output from ``mapper()`` or ``reducer()``, partition,
+    sort if necessary, remove any data that was only used for sorting.
+
+    :param iterable sequence:
+        Of tuples. Output from ``mapper()`` or ``reducer()``.
+    :param bool sort_with_value:
+        Indicates if data should be sorted based on the value element in
+        addition to any sort elements that may be present.
+    :param bool reverse:
+        Indicates if data should be sorted descending instead of ascending.
+
+    :rtype dict:
+
+    :return:
+        Where keys are partitions and values are ready to be passed to
+        ``reduce()`` or ``output()``. All extra sorting information has
+        been removed.
+    """
+
+    sequence = (s for s in sequence)
+    first = next(sequence)
+    sequence = it.chain([first], sequence)
+
+    if len(first) not in (2, 3):
+        raise ElementCountError(
+            "Expected data of size 2 or 3, not {}. Example: {}".format(
+                len(first), first))
+
+    has_sort_element = len(first) == 3
+    need_sort = has_sort_element or sort_with_value
+
+    if has_sort_element:
+        sequence = map(op.itemgetter(0, slice(1, 3)), sequence)
+
+    if not need_sort:
+        getval = None
+        sortkey = None
+
+    elif not has_sort_element and sort_with_value:
+        def getval(x):
+            return x
+        sortkey = None
+
+    else:
+        getval = op.itemgetter(1)
+        if sort_with_value:
+            sortkey = None
+        else:
+            sortkey = op.itemgetter(0)
+
+    partitioned = defaultdict(list)
+    for ptn, vals in sequence:
+        partitioned[ptn].append(vals)
+
+    if need_sort:
+        partitioned = {
+            p: (
+                v.sort(key=sortkey, reverse=reverse),
+                list(map(getval, v))
+            )[1]
+            for p, v in partitioned.items()
+        }
+
+    return partitioned

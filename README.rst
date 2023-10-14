@@ -63,9 +63,7 @@ Noncommittal To Do List
 -----------------------
 
 * Move properties to descriptors.
-* Move ``MapReduce.__partition_and_sort()`` to a function.
 * Attempt an async implementation.
 * Use ``tox`` for testing.
 * Use ``black``.
 * Use ``mypy``.
-
