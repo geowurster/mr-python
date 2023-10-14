@@ -48,7 +48,7 @@ class MapReduce(abc.ABC):
             to calling ``reducer()``.
         """
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     @abc.abstractmethod
     def reducer(self, key, values):
@@ -79,6 +79,8 @@ class MapReduce(abc.ABC):
         A ``tuple`` with 2 or 3 elements. Can also ``yield`` multiple
         ``tuple``s.
         """
+
+        raise NotImplementedError  # pragma: no cover
 
     def output(self, mapping):
 
